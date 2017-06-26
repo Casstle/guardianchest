@@ -43,6 +43,19 @@ minecraft {
 //   replaceIn "WarpDrive.java"
 }
 
+repositories {
+    ivy {
+        name 'Galacticraft'
+        artifactPattern "http://ci.cil.li/job/Galacticraft/${config.gc.build}/artifact/build/libs/[module]-1.7-[revision].${config.gc.build}.[ext]"
+    }
+}
+
+configurations {
+    provided
+    embedded
+    compile.extendsFrom provided, embedded
+}
+
 dependencies {
     // you may put jars on which you depend on in ./libs
     // or you may define them like so..
@@ -56,6 +69,7 @@ dependencies {
     // for more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    provided name: 'GalacticraftCoreAll', version: config.gc.version, ext: 'jar'
 }
 
 processResources {
