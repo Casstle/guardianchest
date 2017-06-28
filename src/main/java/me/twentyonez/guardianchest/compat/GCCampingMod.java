@@ -1,11 +1,13 @@
 package me.twentyonez.guardianchest.compat;
 
+import me.twentyonez.guardianchest.common.EnumInventoryType;
+import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -21,16 +23,16 @@ public class GCCampingMod {
     private GCCampingMod() {
     }
 
-    public static void addItems(List<ItemStack> items, List<Integer> slot, List<String> type, EntityPlayer player, Integer saveItems, Integer sbInventoryLevel) {
+    public static void addItems(List<ItemStackTypeSlot> itemStackTypeSlots, EntityPlayer player, Integer saveItems, Integer levelSoulBoundInventory) {
         if (isInstalled()) {
-            NBTTagCompound tag = player.getEntityData().getCompoundTag("campInv");
-            NBTTagList inventory = tag.getTagList("Items", 10);
-            for (int i = 0; i < inventory.tagCount(); ++i) {
-                NBTTagCompound Slots = inventory.getCompoundTagAt(i);
-                Slots.getInteger("Slot");
-                items.add(ItemStack.loadItemStackFromNBT(Slots).copy());
-                slot.add(i);
-                type.add("campingMod");
+            final NBTTagCompound tagCompoundCampInv = player.getEntityData().getCompoundTag("campInv");
+            final NBTTagList tagListItems = tagCompoundCampInv.getTagList("Items", 10);
+            for (int indexSlot = 0; indexSlot < tagListItems.tagCount(); ++indexSlot) {
+                NBTTagCompound tagCompoundSlot = tagListItems.getCompoundTagAt(indexSlot);
+                // @TODO: do we need to use the following as an indexSlot value?
+                // tagCompoundSlot.getInteger("Slot");
+                final ItemStackTypeSlot itemStackTypeSlot = new ItemStackTypeSlot(ItemStack.loadItemStackFromNBT(tagCompoundSlot).copy(), EnumInventoryType.CAMPINGMOD, indexSlot);
+                itemStackTypeSlots.add(itemStackTypeSlot);
             }
             player.getEntityData().setTag("campInv", new NBTTagCompound());
         }

@@ -1,9 +1,9 @@
 package me.twentyonez.guardianchest.compat;
 
 import me.twentyonez.guardianchest.block.GCBlocks;
-import me.twentyonez.guardianchest.common.GCMainRegistry;
+import me.twentyonez.guardianchest.GuardianChest;
 import net.minecraft.item.ItemStack;
-import thaumcraft.api.ItemApi;
+
 import thaumcraft.api.ThaumcraftApi;
 import thaumcraft.api.aspects.Aspect;
 import thaumcraft.api.aspects.AspectList;
@@ -27,16 +27,16 @@ public class GCThaumcraft {
     public static void addAspects() {
         try {
             // Maps
-            ThaumcraftApi.registerObjectTag(new ItemStack(GCMainRegistry.boundMapTier0), new int[]{0}, new AspectList().add(Aspect.MIND, 3)
+            ThaumcraftApi.registerObjectTag(new ItemStack(GuardianChest.boundMapTier0), new int[]{0}, new AspectList().add(Aspect.MIND, 3)
             		.add(Aspect.VOID, 3).add(Aspect.METAL, 1));
-            ThaumcraftApi.registerObjectTag(new ItemStack(GCMainRegistry.boundMapTier1), new int[]{0}, new AspectList().add(Aspect.MIND, 3)
+            ThaumcraftApi.registerObjectTag(new ItemStack(GuardianChest.boundMapTier1), new int[]{0}, new AspectList().add(Aspect.MIND, 3)
             		.add(Aspect.ENERGY, 2).add(Aspect.TRAVEL, 1).add(Aspect.METAL, 1));
             // Guardians
-            ThaumcraftApi.registerObjectTag(new ItemStack(GCMainRegistry.guardianTier0), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
+            ThaumcraftApi.registerObjectTag(new ItemStack(GuardianChest.guardianTier0), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
                     .add(Aspect.VOID, 3).add(Aspect.MECHANISM, 1));
-            ThaumcraftApi.registerObjectTag(new ItemStack(GCMainRegistry.guardianTier1), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
+            ThaumcraftApi.registerObjectTag(new ItemStack(GuardianChest.guardianTier1), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
                     .add(Aspect.ENERGY, 1).add(Aspect.MECHANISM, 1).add(Aspect.MIND, 1).add(Aspect.MAGIC, 1));
-            ThaumcraftApi.registerObjectTag(new ItemStack(GCMainRegistry.guardianTier2), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
+            ThaumcraftApi.registerObjectTag(new ItemStack(GuardianChest.guardianTier2), new int[]{0}, new AspectList().add(Aspect.TREE, 4)
                     .add(Aspect.ENERGY, 3).add(Aspect.MECHANISM, 1).add(Aspect.MIND, 4).add(Aspect.MAGIC, 1).add(Aspect.TRAVEL, 1));
             // Chest
             ThaumcraftApi.registerObjectTag(new ItemStack(GCBlocks.GCChest), new int[]{0}, new AspectList().add(Aspect.TREE, 4)

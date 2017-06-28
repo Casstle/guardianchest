@@ -3,16 +3,11 @@ package me.twentyonez.guardianchest.compat;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
-import me.twentyonez.guardianchest.util.ConfigHelper;
 
-
-
-
-
-
-import java.lang.reflect.Method;
 import java.util.List;
 
+import me.twentyonez.guardianchest.common.EnumInventoryType;
+import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
 import tconstruct.api.IPlayerExtendedInventoryWrapper;
 import tconstruct.api.TConstructAPI;
 
@@ -34,36 +29,34 @@ public class GCTinkersConstruct {
     private GCTinkersConstruct() {
     }
 
-    public static void addItems(List<ItemStack> items, List<Integer> slot, List<String> type, EntityPlayer player, Integer saveItems, Integer sbInventoryLevel) {
+    public static void addItems(List<ItemStackTypeSlot> itemStackTypeSlots, EntityPlayer player, Integer saveItems, Integer levelSoulBoundInventory) {
         if (isInstalled()) {
-            IPlayerExtendedInventoryWrapper inventoryWrapper = TConstructAPI.getInventoryWrapper(player);
+            final IPlayerExtendedInventoryWrapper inventoryWrapper = TConstructAPI.getInventoryWrapper(player);
             if (inventoryWrapper != null) {
-                IInventory knapsackInventory = inventoryWrapper.getKnapsackInventory(player);
-                if (knapsackInventory != null) {
-                    for (int i = 0; i < knapsackInventory.getSizeInventory(); i++) {
-                        ItemStack stack = knapsackInventory.getStackInSlot(i);
-                        if (stack != null) {
-                            items.add(stack.copy());
-                            slot.add(i);
-                            type.add("tcKnapsack");
-                            if ((saveItems != 0) || GCsoulBinding.keepItem(stack, i, "tcKnapsack", player, sbInventoryLevel)) {
-                            	knapsackInventory.setInventorySlotContents(i, null);
+                final IInventory inventoryKnapsack = inventoryWrapper.getKnapsackInventory(player);
+                if (inventoryKnapsack != null) {
+                    for (int indexSlot = 0; indexSlot < inventoryKnapsack.getSizeInventory(); indexSlot++) {
+                        final ItemStack itemStackInSlot = inventoryKnapsack.getStackInSlot(indexSlot);
+                        if (itemStackInSlot != null) {
+                            final ItemStackTypeSlot itemStackTypeSlot = new ItemStackTypeSlot(itemStackInSlot, EnumInventoryType.TC_KNAPSACK, indexSlot);
+                            itemStackTypeSlots.add(itemStackTypeSlot);
+                            if ((saveItems != 0) || GCsoulBinding.keepItem(itemStackTypeSlot, player, levelSoulBoundInventory)) {
+                            	inventoryKnapsack.setInventorySlotContents(indexSlot, null);
                             }
                         }
                     }
                 }
 
-                IInventory accessoryInventory = inventoryWrapper.getAccessoryInventory(player);
-                if (accessoryInventory != null) {
+                final IInventory inventoryAccessory = inventoryWrapper.getAccessoryInventory(player);
+                if (inventoryAccessory != null) {
                     //Heart Canisters should not go in the grave as they are not supposed to be dropped on death, so only first 4 slots required
-                    for (int i = 0; i < ACCESSORIES_SLOTS_COUNT; i++) {
-                        ItemStack stack = accessoryInventory.getStackInSlot(i);
-                        if (stack != null) {
-                            items.add(stack.copy());
-                            slot.add(i);
-                            type.add("tcAccessory");
-                            if ((saveItems != 0) || GCsoulBinding.keepItem(stack, i, "tcAccessory", player, sbInventoryLevel)) {
-                            	accessoryInventory.setInventorySlotContents(i, null);
+                    for (int indexSlot = 0; indexSlot < ACCESSORIES_SLOTS_COUNT; indexSlot++) {
+                        final ItemStack itemStackInSlot = inventoryAccessory.getStackInSlot(indexSlot);
+                        if (itemStackInSlot != null) {
+                            final ItemStackTypeSlot itemStackTypeSlot = new ItemStackTypeSlot(itemStackInSlot, EnumInventoryType.TC_ACCESSORY, indexSlot);
+                            itemStackTypeSlots.add(itemStackTypeSlot);
+                            if ((saveItems != 0) || GCsoulBinding.keepItem(itemStackTypeSlot, player, levelSoulBoundInventory)) {
+                            	inventoryAccessory.setInventorySlotContents(indexSlot, null);
                             }
                         }
 

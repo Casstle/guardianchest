@@ -1,5 +1,7 @@
 package me.twentyonez.guardianchest.item;
 
+import me.twentyonez.guardianchest.GuardianChest;
+
 import java.util.List;
 
 import net.minecraft.creativetab.CreativeTabs;
@@ -25,7 +27,7 @@ public class ItemGuardianTier2 extends Item {
 	public ItemGuardianTier2() {
 		setUnlocalizedName("guardianTier2");
 		setTextureName("guardianchest:guardianTier2");
-		setCreativeTab(CreativeTabs.tabMisc);
+		setCreativeTab(GuardianChest.GCtab);
 		setMaxStackSize(1);
 	}
 	

@@ -1,8 +1,11 @@
 package me.twentyonez.guardianchest.common;
 
 import java.util.ArrayList;
-import java.util.Random;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
+import me.twentyonez.guardianchest.GuardianChest;
 import me.twentyonez.guardianchest.block.GCBlocks;
 import me.twentyonez.guardianchest.compat.GCBattlegear;
 import me.twentyonez.guardianchest.compat.GCBaubles;
@@ -10,22 +13,20 @@ import me.twentyonez.guardianchest.compat.GCCampingMod;
 import me.twentyonez.guardianchest.compat.GCGalacticraft;
 import me.twentyonez.guardianchest.compat.GCRpgInventory;
 import me.twentyonez.guardianchest.compat.GCTinkersConstruct;
+import me.twentyonez.guardianchest.compat.GCTravellersGear;
 import me.twentyonez.guardianchest.compat.GCTwilightForest;
 import me.twentyonez.guardianchest.compat.GCminecraft;
 import me.twentyonez.guardianchest.compat.GCsoulBinding;
 import me.twentyonez.guardianchest.tile_entity.TileEntityGCChest;
 import me.twentyonez.guardianchest.util.ConfigHelper;
+
+import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntityChest;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.MathHelper;
-import net.minecraft.nbt.NBTTagCompound;
-
-import java.util.Arrays;
 
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
@@ -49,125 +50,155 @@ public class GCEventHandler {
 		
 	}
 	
-	ArrayList<ItemStack> playerInventoryList = new ArrayList<ItemStack>();
-	ArrayList<String> playerInventoryType = new ArrayList<String>();
-	ArrayList<Integer> playerInventorySlot = new ArrayList<Integer>();
-	int sbInventoryLevel  = 0; 
+	Map<UUID, ArrayList<ItemStackTypeSlot>> player_itemStackTypeSlots = new HashMap<>(50);
+	Map<UUID, Integer> player_levelSoulBoundInventory = new HashMap<>(50);
 
-
+	private ArrayList<ItemStackTypeSlot> getItemStackTypeSlots(final EntityPlayer entityPlayer) {
+		return player_itemStackTypeSlots.computeIfAbsent(entityPlayer.getPersistentID(), k -> new ArrayList<>(64));
+	}
+	
+	private int getSoulBoundInventoryLevel(final EntityPlayer entityPlayer) {
+		return player_levelSoulBoundInventory.computeIfAbsent(entityPlayer.getPersistentID(), k -> 0);
+	}
+	
+	private void setSoulBoundInventoryLevel(final EntityPlayer entityPlayer, final Integer levelSoulBoundInventory) {
+		player_levelSoulBoundInventory.put(entityPlayer.getPersistentID(), levelSoulBoundInventory);
+	}
+	
 	@SubscribeEvent(priority=EventPriority.LOWEST)
 	public void playerCraftsBoundMapTier0(ItemCraftedEvent event) {
 		EntityPlayer player = event.player;
-		if (event.crafting.getItem() == GCMainRegistry.boundMapTier0) {
-			GCMainRegistry.guardianTier1.setContainerItem(GCMainRegistry.guardianTier1);
+		if (event.crafting.getItem() == GuardianChest.boundMapTier0) {
+			GuardianChest.guardianTier1.setContainerItem(GuardianChest.guardianTier1);
 			World world = player.worldObj;
 			if (world.isRemote) {
-				String warning = new String(LanguageRegistry.instance().getStringLocalization("desc.boundMapTier0.Crafted").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")));
+				String warning = LanguageRegistry.instance().getStringLocalization("desc.boundMapTier0.Crafted")
+				                 .replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name"));
 	    		player.addChatComponentMessage(new ChatComponentText(warning));
 			}
     		
 		} else {
-			GCMainRegistry.guardianTier1.setContainerItem(null);
+			GuardianChest.guardianTier1.setContainerItem(null);
 		}
-		if (event.crafting.getItem() == GCMainRegistry.boundMapTier1) {
-			GCMainRegistry.guardianTier2.setContainerItem(GCMainRegistry.guardianTier1);
+		if (event.crafting.getItem() == GuardianChest.boundMapTier1) {
+			GuardianChest.guardianTier2.setContainerItem(GuardianChest.guardianTier1);
 		} else {
-			GCMainRegistry.guardianTier2.setContainerItem(null);
+			GuardianChest.guardianTier2.setContainerItem(null);
 		}
 	}
 	
 	@SubscribeEvent(priority=EventPriority.HIGH)
-	public void playerRespawnEvent(EntityJoinWorldEvent event) {
-		if(event.entity instanceof EntityPlayer){
-			EntityPlayer player = (EntityPlayer)event.entity;
-			if (player.isEntityAlive()) {
-	        	GCsoulBinding.getSoulboundItemsBack(playerInventoryList, playerInventorySlot, playerInventoryType, player, sbInventoryLevel);
-		        playerInventoryList.clear();
-		        playerInventorySlot.clear();
-		        playerInventoryType.clear();
-		        sbInventoryLevel = 0;
+	public void onPlayerRespawn(EntityJoinWorldEvent event) {
+		if (event.entity instanceof EntityPlayer) {
+			final EntityPlayer entityPlayer = (EntityPlayer) event.entity;
+			GCsoulBinding.startCounting(entityPlayer);
+			
+			if (entityPlayer.isEntityAlive()) {
+				final ArrayList<ItemStackTypeSlot> itemStackTypeSlots = getItemStackTypeSlots(entityPlayer);
+				final int levelSoulBoundInventory = getSoulBoundInventoryLevel(entityPlayer);
+				if (GuardianChest.DEBUG) {
+					GuardianChest.logger.info(String.format("isAlive %s (%d) level %d",
+					                                        itemStackTypeSlots, itemStackTypeSlots.size(), levelSoulBoundInventory));
+				}
+	        	GCsoulBinding.getSoulBoundItemsBack(itemStackTypeSlots, entityPlayer, levelSoulBoundInventory);
+				itemStackTypeSlots.clear();
+				setSoulBoundInventoryLevel(entityPlayer, 0);
 			}
 		}
 	}
 	
 	@SubscribeEvent(priority=EventPriority.HIGH) 
-	public void playerDeathEvent(LivingDeathEvent event) {
-		if(event.entityLiving instanceof EntityPlayer){
+	public void onPlayerDeath(LivingDeathEvent event) {
+		if (event.entityLiving instanceof EntityPlayer) {
 			
-			EntityPlayer player = (EntityPlayer)event.entityLiving;
+			EntityPlayer entityPlayer = (EntityPlayer) event.entityLiving;
+			GCsoulBinding.startCounting(entityPlayer);
 			
 			// Check if config file defines the Guardian Stone as a requirement for the chest to work 
 			int saveItems = 0;
 			if(!ConfigHelper.requireGuardianIdol) {
 				saveItems = -1;
 			} else {
-				if (player.inventory.hasItem(GCMainRegistry.guardianTier2)) {
-					player.inventory.consumeInventoryItem(GCMainRegistry.guardianTier2);
+				if (entityPlayer.inventory.hasItem(GuardianChest.guardianTier2)) {
+					entityPlayer.inventory.consumeInventoryItem(GuardianChest.guardianTier2);
 					saveItems = 2;
-				} else if (player.inventory.hasItem(GCMainRegistry.guardianTier1)) {
-					player.inventory.consumeInventoryItem(GCMainRegistry.guardianTier1);
+				} else if (entityPlayer.inventory.hasItem(GuardianChest.guardianTier1)) {
+					entityPlayer.inventory.consumeInventoryItem(GuardianChest.guardianTier1);
 					saveItems = 1;
 				}
 			}
 
 			// Check for Twilight Forest Charms of Keeping
+			int levelSoulBoundInventory = 0;
 			if (GCTwilightForest.isInstalled()) {
-				if (player.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping3)) {
-					player.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping3);
-					sbInventoryLevel = 3;
-				} else if (player.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping2)) {
-					player.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping2);
-					sbInventoryLevel = 2;
-				} else if (player.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping1)) {
-					player.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping1);
-					sbInventoryLevel = 1;
+				if (entityPlayer.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping3)) {
+					entityPlayer.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping3);
+					levelSoulBoundInventory = 3;
+				} else if (entityPlayer.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping2)) {
+					entityPlayer.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping2);
+					levelSoulBoundInventory = 2;
+				} else if (entityPlayer.inventory.hasItem(twilightforest.item.TFItems.charmOfKeeping1)) {
+					entityPlayer.inventory.consumeInventoryItem(twilightforest.item.TFItems.charmOfKeeping1);
+					levelSoulBoundInventory = 1;
 				}
 			}
-
+			setSoulBoundInventoryLevel(entityPlayer, levelSoulBoundInventory);
+			
+			final ArrayList<ItemStackTypeSlot> itemStackTypeSlots = getItemStackTypeSlots(entityPlayer);
+			
 			// Get Vanilla inventory
-        	GCminecraft.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+        	GCminecraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
 			
 			// Get Battlegear inventory
             if (GCBattlegear.isInstalled()) {
-            	GCBattlegear.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCBattlegear.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
 			
 			// Get Baubles inventory
             if (GCBaubles.isInstalled()) {
-            	GCBaubles.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCBaubles.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
 
 			// Get Galacticraft inventory
             if (GCGalacticraft.isInstalled()) {
-            	GCGalacticraft.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCGalacticraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
 
 			// Get RpgInventory inventory
             if (GCRpgInventory.isInstalled()) {
-            	GCRpgInventory.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCRpgInventory.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
 
 			// Get The Camping Mod inventory
             if (GCCampingMod.isInstalled()) {
-            	GCCampingMod.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCCampingMod.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
+            
+            // Get the TravellersGear inventory
+			if (GCTravellersGear.isInstalled()) {
+				GCTravellersGear.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
 			
 			// Get Tinker's Construct inventory
             if (GCTinkersConstruct.isInstalled()) {
-            	GCTinkersConstruct.addItems(playerInventoryList, playerInventorySlot, playerInventoryType, player, saveItems, sbInventoryLevel);
+            	GCTinkersConstruct.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
             }
-
+			
             // Get the player death coords. If it's out of the world, get last slept location. If player did
 			// not sleep yet, get world spawn coords.
-			if(saveItems != 0) {
-				int posX1 = MathHelper.floor_double(player.posX);
-				int posY1 = MathHelper.floor_double(player.posY);
-				int posZ1 = MathHelper.floor_double(player.posZ);
+			if (saveItems != 0) {
+				int posX1 = MathHelper.floor_double(entityPlayer.posX);
+				int posY1 = MathHelper.floor_double(entityPlayer.posY);
+				int posZ1 = MathHelper.floor_double(entityPlayer.posZ);
 				
-				World world = player.worldObj;
+				World world = entityPlayer.worldObj;
 				
-				if ((posY1 <= 0) || (saveItems == 2)) {
-					ChunkCoordinates bed = player.getBedLocation(player.dimension);
+				if ((posY1 <= 0) || (saveItems == 2) || ((saveItems == -1) && (ConfigHelper.defaultsToTier2))) {
+					ChunkCoordinates bed = entityPlayer.getBedLocation(entityPlayer.dimension);
+					if (bed == null) {
+						world = MinecraftServer.getServer().worldServerForDimension(0);
+						bed = entityPlayer.getBedLocation(0);
+					}
 					
 					if (bed != null) {
 						posY1 = bed.posY;
@@ -181,13 +212,13 @@ public class GCEventHandler {
 				}
 				
 				// Look for a free spot
-				int newX = posX1;
-				int newY = posY1;
-				int newZ = posZ1;
-				int window = 5;
+				int window = ConfigHelper.maxRadiusToSearchForAFreeSpot;
 				if (!isFreeSpot(world, posX1, posY1, posZ1)) {
-					double isFreeSpotMap[][][] = new double [window*2+1] [window*2+1] [window*2+1];
-					double minDistance = new Double(window*4+2);
+					int newX = posX1;
+					int newY = posY1;
+					int newZ = posZ1;
+					double isFreeSpotMap[][][] = new double [window * 2 + 1] [window * 2 + 1] [window * 2 + 1];
+					double minDistance = Double.MAX_VALUE;
 					for (int x = -window; x <= window; x++){
 						for (int z = -window; z <= window; z++){
 							for (int y = -window; y <= window; y++){
@@ -209,65 +240,88 @@ public class GCEventHandler {
 							}
 						}
 					}
+					if (minDistance != Double.MAX_VALUE) {
+						// Free spot found?
+						posX1 = newX;
+						posY1 = newY;
+						posZ1 = newZ;
+					}
 				}
-				// Free spot found?
-				posX1 = newX;
-				posY1 = newY;
-				posZ1 = newZ;
 				
 				// Create chest
 				world.setBlock(posX1, posY1, posZ1, GCBlocks.GCChest, 0, 2);
-				TileEntityGCChest chest1 = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
+				TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
 
-				// Warn the entire world of its existence
-				if ((!world.isRemote) && (ConfigHelper.broadcastChestCoords)) {
-		    		String warning = new String(LanguageRegistry.instance().getStringLocalization("desc.SpawnLocation.Warning").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", player.getDisplayName()) + ": " + posX1 + "," + posY1 + "," + posZ1 + ".");
-		    		player.addChatComponentMessage(new ChatComponentText(warning));
+				// Inform related player of its existence
+				if ((!world.isRemote) && (ConfigHelper.informCoords)) {
+		    		final String message = LanguageRegistry.instance().getStringLocalization("desc.SpawnLocation.Warning")
+				                           .replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name"))
+				                           .replace("%2", entityPlayer.getDisplayName())
+				                           .replace("%3", String.format("DIM %d (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
+					
+					entityPlayer.addChatComponentMessage(new ChatComponentText(message));
 		    	}
 
 				
 				// Dump player inventory into chest 
-				int chest1slot = 0;
+				int indexChestSlot = 0;
 				
 				// Return a BoundMapTier0 to the chest if the chest was a Tier2.
-				if (saveItems == 2) {
-					chest1.setInventorySlotContents(chest1slot, new ItemStack(GCMainRegistry.boundMapTier0));
-					chest1slot++;
+				if (saveItems == 2 && ConfigHelper.returnChestToInventory) {
+					tileEntityGCChest.setInventorySlotContents(indexChestSlot, new ItemStack(GuardianChest.boundMapTier0));
+					indexChestSlot++;
 				}
 				// Add an ItemGuardianTier0 to chest.
-				if (saveItems != -1) {
-					chest1.setInventorySlotContents(chest1slot, new ItemStack(GCMainRegistry.guardianTier0));
-					chest1slot++;
+				if (saveItems != -1 && ConfigHelper.returnChestToInventory) {
+					if (ConfigHelper.levelCostGuardianTier1 != 0) {
+						tileEntityGCChest.setInventorySlotContents(indexChestSlot, new ItemStack(GuardianChest.guardianTier0));
+					} else {
+						tileEntityGCChest.setInventorySlotContents(indexChestSlot, new ItemStack(GuardianChest.guardianTier1));
+					}
+					indexChestSlot++;
 				}
-		        // Dump collected inventory into chest				
-				for(int i = 0; i < playerInventoryList.size(); i++){
-					if (!GCsoulBinding.keepItem(playerInventoryList.get(i), playerInventorySlot.get(i), playerInventoryType.get(i), player, sbInventoryLevel)) {
-						if (chest1slot > chest1.getSizeInventory()-1) {
-							// Chest 1 is full! 
+				
+				
+				
+				if (GuardianChest.DEBUG) {
+					GuardianChest.logger.info(String.format("Before dump into chest %s (%d) level %d",
+					                                        itemStackTypeSlots, itemStackTypeSlots.size(), levelSoulBoundInventory));
+				}
+				
+				// Dump collected inventory into chest				
+				for (ItemStackTypeSlot itemStackTypeSlot : itemStackTypeSlots) {
+					if (!GCsoulBinding.keepItem(itemStackTypeSlot, entityPlayer, levelSoulBoundInventory)) {
+						if (indexChestSlot > tileEntityGCChest.getSizeInventory() - 1) {// Chest is full 
 							// Returning item to player's inventory, so it drops
-	                        while (!player.inventory.addItemStackToInventory(playerInventoryList.get(i))) {
-	                            player.dropOneItem(true);
-	                        }
+							while (!entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
+								entityPlayer.dropOneItem(true);
+							}
 							
-						} else {
-							// Filling Chest 1
+						} else {// Filling chest
 							
-							chest1.setInventorySlotContents(chest1slot, playerInventoryList.get(i));
-							chest1slot++;
+							if (GuardianChest.DEBUG) {
+								GuardianChest.logger.info(String.format("Adding to chest[%d] of %s",
+								                                        indexChestSlot, itemStackTypeSlot.itemStack));
+							}
+							tileEntityGCChest.setInventorySlotContents(indexChestSlot, itemStackTypeSlot.itemStack);
+							indexChestSlot++;
 						}
 					}
 				}
 				if(!world.isRemote)
 		        {
-	                chest1.registerOwner(player, world, posX1, posY1, posZ1);
+	                tileEntityGCChest.registerOwner(entityPlayer, world, posX1, posY1, posZ1);
 		        }
 			}
 		}
 	}
 	
     private static boolean isFreeSpot(World world, int posX, int posY, int posZ) {
-        return world.getBlock(posX, posY-1, posZ).getMaterial().isSolid() &&
-                (world.isAirBlock(posX, posY, posZ) || world.getBlock(posX, posY, posZ).getMaterial().isLiquid() || world.getBlock(posX, posY, posZ).getMaterial().isReplaceable());
+		final Block block = world.getBlock(posX, posY, posZ);
+        return world.getBlock(posX, posY - 1, posZ).getMaterial().isSolid()
+            && ( block.isAir(world, posX, posY, posZ)
+              || block.getMaterial().isLiquid()
+              || block.isReplaceable(world, posX, posY, posZ) );
     }
 
 }

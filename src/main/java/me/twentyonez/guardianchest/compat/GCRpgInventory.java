@@ -3,6 +3,9 @@ package me.twentyonez.guardianchest.compat;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
+
+import me.twentyonez.guardianchest.common.EnumInventoryType;
+import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
 import me.twentyonez.guardianchest.util.ConfigHelper;
 
 
@@ -26,8 +29,8 @@ public class GCRpgInventory {
 
     private GCRpgInventory() {
     }
-
-    public static void addItems(List<ItemStack> items, List<Integer> slot, List<String> type, EntityPlayer player, Integer saveItems, Integer sbInventoryLevel) {
+    
+    public static void addItems(List<ItemStackTypeSlot> itemStackTypeSlots, EntityPlayer player, Integer saveItems, Integer levelSoulBoundInventory) {
         if (isInstalled()) {
             try {
                 Class<?> clazz = Class.forName("rpgInventory.gui.rpginv.PlayerRpgInventory");
@@ -36,17 +39,16 @@ public class GCRpgInventory {
 
                 IInventory inventory = (IInventory) result;
                 if (inventory != null) {
-                    for (int i = 0; i < inventory.getSizeInventory(); i++) {
-                        ItemStack stack = inventory.getStackInSlot(i);
-                        if (stack != null) {
-                            items.add(stack.copy());
-                            slot.add(i);
-                            type.add("rpgInventory");
-                            if ((saveItems != 0) || GCsoulBinding.keepItem(stack, i, "rpgInventory", player, sbInventoryLevel)) {
-                            	inventory.setInventorySlotContents(i, null);
+                    for (int indexSlot = 0; indexSlot < inventory.getSizeInventory(); indexSlot++) {
+                        final ItemStack itemStackInSlot = inventory.getStackInSlot(indexSlot);
+                        if (itemStackInSlot != null) {
+                            final ItemStackTypeSlot itemStackTypeSlot = new ItemStackTypeSlot(itemStackInSlot, EnumInventoryType.RPG_INVENTORY, indexSlot);
+                            itemStackTypeSlots.add(itemStackTypeSlot);
+                            if ((saveItems != 0) || GCsoulBinding.keepItem(itemStackTypeSlot, player, levelSoulBoundInventory)) {
+                            	inventory.setInventorySlotContents(indexSlot, null);
                             } else if (ConfigHelper.makeAllItemsDrop) {
-                            	player.inventory.addItemStackToInventory(stack);
-                            	inventory.setInventorySlotContents(i, null);
+                            	player.inventory.addItemStackToInventory(itemStackInSlot);
+                            	inventory.setInventorySlotContents(indexSlot, null);
                             }
                         }
                     }

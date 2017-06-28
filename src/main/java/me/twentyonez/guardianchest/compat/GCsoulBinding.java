@@ -2,18 +2,22 @@ package me.twentyonez.guardianchest.compat;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-import tconstruct.api.IPlayerExtendedInventoryWrapper;
-import tconstruct.api.TConstructAPI;
+import me.twentyonez.guardianchest.GuardianChest;
+import me.twentyonez.guardianchest.common.EnumInventoryType;
+import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
 import me.twentyonez.guardianchest.util.ConfigHelper;
 import micdoodle8.mods.galacticraft.api.inventory.AccessInventoryGC;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import baubles.api.BaublesApi;
@@ -29,111 +33,126 @@ import baubles.api.BaublesApi;
 
 public class GCsoulBinding {
 
-    public static List<String> soulBindingEnchantmentsList = new ArrayList<String>();
+    public static List<String> soulBindingEnchantmentsList;
+    private static Map<UUID, Integer> playerToSoulboundCount = new HashMap<>(50);
 
     private GCsoulBinding() {
     }
 
-    public static void getSoulboundItemsBack(List<ItemStack> items, List<Integer> slot, List<String> type, EntityPlayer player, Integer sbInventoryLevel) {
-        Iterator<ItemStack> it = items.iterator();
-        Iterator<Integer> sl = slot.iterator();
-        Iterator<String> ty = type.iterator();
-        while (it.hasNext()) {
-            ItemStack stack = it.next();
-        	Integer stackSlot = sl.next();
-        	String stackInvType = ty.next();
-            if (stack != null && keepItem(stack, stackSlot, stackInvType, player, sbInventoryLevel))  {
+    public static void startCounting(final EntityPlayer entityPlayer) {
+    	playerToSoulboundCount.put(entityPlayer.getPersistentID(), ConfigHelper.maxSoulBoundItems);
+    }
+	
+	public static boolean canKeepNextSoulBoundItem(final EntityPlayer entityPlayer) {
+		final int count = playerToSoulboundCount.get(entityPlayer.getPersistentID());
+		if (count <= 0) {
+			return false;
+		}
+		playerToSoulboundCount.put(entityPlayer.getPersistentID(), count - 1);
+		return true;
+	}
+	
+	public static void getSoulBoundItemsBack(final List<ItemStackTypeSlot> itemStackTypeSlots, final EntityPlayer player, final Integer levelSoulBoundInventory) {
+		if (GuardianChest.DEBUG) {
+			GuardianChest.logger.info(String.format("getSoulBoundItemsBack itemStackTypeSlots %s levelSoulBoundInventory %d",
+			                                        itemStackTypeSlots, levelSoulBoundInventory));
+		}
+		boolean isFirstException = true;
+    	final Iterator<ItemStackTypeSlot> iteratorItemStackTypeSlots = itemStackTypeSlots.iterator();
+        while (iteratorItemStackTypeSlots.hasNext()) {
+	        ItemStackTypeSlot itemStackTypeSlot = iteratorItemStackTypeSlots.next();
+            if (itemStackTypeSlot.itemStack != null && keepItem(itemStackTypeSlot, player, levelSoulBoundInventory))  {
             	//player.inventory.addItemStackToInventory(stack.copy());
-        		if ((stackInvType == "vanillaMain")) {
-        			if (player.inventory.getStackInSlot(stackSlot) != null) {
-                        while (!player.inventory.addItemStackToInventory(stack)) {
+        		if (itemStackTypeSlot.type == EnumInventoryType.VANILLA_MAIN) {
+        			if (player.inventory.getStackInSlot(itemStackTypeSlot.indexSlot) != null) {
+                        while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
                             player.dropOneItem(true);
                         }
         			} else {
-        				player.inventory.setInventorySlotContents((stackSlot), stack);
+        				player.inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
         			}
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "vanillaArmor")) {
-                    player.inventory.setInventorySlotContents((stackSlot+36), stack);
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "baubles") && GCBaubles.isInstalled) {
+                    iteratorItemStackTypeSlots.remove();
+        			
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.VANILLA_ARMOR) {
+                    player.inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot + 36, itemStackTypeSlot.itemStack);
+                    iteratorItemStackTypeSlots.remove();
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.BAUBLES && GCBaubles.isInstalled) {
                     IInventory inventory = BaublesApi.getBaubles(player);
-            		inventory.setInventorySlotContents(stackSlot, stack);
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "rpgInventory") && GCRpgInventory.isInstalled) {
+            		inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
+                    iteratorItemStackTypeSlots.remove();
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.RPG_INVENTORY && GCRpgInventory.isInstalled) {
                     try {
                         Class<?> clazz = Class.forName("rpgInventory.gui.rpginv.PlayerRpgInventory");
                         Method m = clazz.getDeclaredMethod("get", EntityPlayer.class);
                         Object result = m.invoke(null, player);
 
                         IInventory inventory = (IInventory) result;
-	            		inventory.setInventorySlotContents(stackSlot, stack);
-	                    it.remove();
-	                    ty.remove();
-	                    sl.remove();
-                    } catch (Exception e) {
-                    	//Error trying to give back RPG Inventory... erm... inventory.
+	            		inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
+	                    iteratorItemStackTypeSlots.remove();
+                    } catch (Exception exception) {
+                    	// Error trying to give back RPG Inventory... erm... inventory.
+	                    if (isFirstException) {
+		                    exception.printStackTrace();
+		                    isFirstException = false;
+	                    }
                     }
-            	} else if ((stackInvType == "galacticraft") && GCGalacticraft.isInstalled) {
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.GALACTICRAFT && GCGalacticraft.isInstalled) {
                     IInventory inventory = AccessInventoryGC.getGCInventoryForPlayer((EntityPlayerMP) player);
-            		inventory.setInventorySlotContents(stackSlot, stack);
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "battlegear") && GCBattlegear.isInstalled)  {
-                    player.inventory.setInventorySlotContents(stackSlot, stack);
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "campingMod") && GCCampingMod.isInstalled)  {
-                    while (!player.inventory.addItemStackToInventory(stack)) {
+            		inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
+                    iteratorItemStackTypeSlots.remove();
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.BATTLEGEAR && GCBattlegear.isInstalled)  {
+                    player.inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
+                    iteratorItemStackTypeSlots.remove();
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.CAMPINGMOD && GCCampingMod.isInstalled) {
+			        while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
+				        player.dropOneItem(true);
+			        }
+			        iteratorItemStackTypeSlots.remove();
+					
+		        } else if ((itemStackTypeSlot.type == EnumInventoryType.TRAVELLERS_GEAR) && (GCTravellersGear.isInstalled)) {
+			        while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
+				        player.dropOneItem(true);
+			        }
+			        iteratorItemStackTypeSlots.remove();
+			        
+			    } else if (itemStackTypeSlot.type == EnumInventoryType.TC_ACCESSORY && GCTinkersConstruct.isInstalled)  {
+                    while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
                     	player.dropOneItem(true);
                     }
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "tcAccessory") && GCTinkersConstruct.isInstalled)  {
-                    while (!player.inventory.addItemStackToInventory(stack)) {
-                    	player.dropOneItem(true);
-                    }
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
-            	} else if ((stackInvType == "tcKnapsack") && GCTinkersConstruct.isInstalled)  {
-                    while (!player.inventory.addItemStackToInventory(stack)) {
+                    iteratorItemStackTypeSlots.remove();
+                    
+            	} else if (itemStackTypeSlot.type == EnumInventoryType.TC_KNAPSACK && GCTinkersConstruct.isInstalled)  {
+                    while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
                         player.dropOneItem(true);
                     }
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
+                    iteratorItemStackTypeSlots.remove();
+                    
             	} else {
-        			if (player.inventory.getStackInSlot(stackSlot) != null) {
-                        while (!player.inventory.addItemStackToInventory(stack)) {
+        			if (player.inventory.getStackInSlot(itemStackTypeSlot.indexSlot) != null) {
+                        while (!player.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
                             player.dropOneItem(true);
                         }
         			} else {
-        				player.inventory.setInventorySlotContents((stackSlot), stack);
+        				player.inventory.setInventorySlotContents(itemStackTypeSlot.indexSlot, itemStackTypeSlot.itemStack);
         			}
-                    it.remove();
-                    ty.remove();
-                    sl.remove();
+                    iteratorItemStackTypeSlots.remove();
             	}
             }
         }
     }
 
-    public static boolean hasSoulbound(ItemStack stack) {
-        Map enchantments = EnchantmentHelper.getEnchantments(stack);
+    public static boolean hasSoulBound(final ItemStack itemStack) {
+        Map enchantments = EnchantmentHelper.getEnchantments(itemStack);
         for (Object id : enchantments.keySet()) {
-            Enchantment ench = Enchantment.enchantmentsList[((Integer) id).shortValue()];
-            if (ench != null) {
-            	if ((ConfigHelper.anyEnchantSoulBinds) || GCsoulBinding.soulBindingEnchantmentsList().contains(ench.getClass().getName())) {
+            final Enchantment enchantment = Enchantment.enchantmentsList[((Integer) id).shortValue()];
+            if (enchantment != null) {
+            	if ( ConfigHelper.anyEnchantSoulBinds
+	              || soulBindingEnchantmentsList().contains(enchantment.getClass().getName()) ) {
             		return true;
             	}
             }
@@ -141,32 +160,50 @@ public class GCsoulBinding {
         return false;
     }
     
-    public static boolean keepItem(ItemStack item, Integer slot, String type, EntityPlayer player, int sbInventoryLevel) {
-    	if (hasSoulbound(item)) {
-    		return true;
+    public static boolean keepItem(final ItemStackTypeSlot itemStackTypeSlot, final EntityPlayer player, final Integer levelSoulBoundInventory) {
+    	if (hasSoulBound(itemStackTypeSlot.itemStack)) {
+    		if (canKeepNextSoulBoundItem(player)) {
+			    if (GuardianChest.DEBUG) {
+				    GuardianChest.logger.info(String.format("Keeping soulbounded %s", itemStackTypeSlot.itemStack));
+			    }
+    			return true;
+		    }
     	}
     	// Checks for charms of keeping lvl 3
-    	if (sbInventoryLevel == 3) {
+    	if (levelSoulBoundInventory == 3) {
     		return true;
     	}
     	// Checks for charms of keeping lvl 2 AND if (item was in hotbar OR (is not main inventory AND is not battlegear AND is not miscellaneous) ).
-    	if ((sbInventoryLevel == 2) && ( ( (type == "vanillaMain") && (slot < player.inventory.getHotbarSize()) ) || ( (type != "vanillaMain") && (type != "battlegear") && (type != "misc") ) ) ) {
+    	if ( (levelSoulBoundInventory == 2)
+	      && ( ( (itemStackTypeSlot.type == EnumInventoryType.VANILLA_MAIN)
+	          && (itemStackTypeSlot.indexSlot < InventoryPlayer.getHotbarSize()) ) 
+	        || ( (itemStackTypeSlot.type != EnumInventoryType.VANILLA_MAIN) 
+	          && (itemStackTypeSlot.type != EnumInventoryType.BATTLEGEAR)
+	          && (itemStackTypeSlot.type != EnumInventoryType.MISC) ) ) ) {
     		return true;
     	}
     	// Checks for charms of keeping lvl 1 AND if (item was the currently held OR (is not main inventory AND is not battlegear AND is not miscellaneous) ) .
-    	if ( (sbInventoryLevel == 1) && ( ( (type == "vanillaMain") && (player.inventory.currentItem == slot) ) || ( (type != "vanillaMain") && (type != "battlegear") && (type != "misc") ) ) )  {
+    	if ( (levelSoulBoundInventory == 1)
+	      && ( ( (itemStackTypeSlot.type == EnumInventoryType.VANILLA_MAIN)
+	          && (itemStackTypeSlot.indexSlot == player.inventory.currentItem) )
+	        || ( (itemStackTypeSlot.type != EnumInventoryType.VANILLA_MAIN)
+	          && (itemStackTypeSlot.type != EnumInventoryType.BATTLEGEAR)
+	          && (itemStackTypeSlot.type != EnumInventoryType.MISC) ) ) )  {
     		return true;
     	}
     	return false;
     }
     
     public static List soulBindingEnchantmentsList() {
-    	if (GCAM2.isInstalled()) {
-    		soulBindingEnchantmentsList.add("am2.enchantments.EnchantmentSoulbound");
-    	}
-    	if (GCEnderIO.isInstalled()) {
-    		soulBindingEnchantmentsList.add("enchantment.enderio.soulBound");
-    	}
+    	if (soulBindingEnchantmentsList == null) {
+    		soulBindingEnchantmentsList = new ArrayList<>();
+		    if (GCAM2.isInstalled()) {
+			    soulBindingEnchantmentsList.add("am2.enchantments.EnchantmentSoulbound");
+		    }
+		    if (GCEnderIO.isInstalled()) {
+			    soulBindingEnchantmentsList.add("enchantment.enderio.soulBound");
+		    }
+	    }
     	return soulBindingEnchantmentsList;
     }
     

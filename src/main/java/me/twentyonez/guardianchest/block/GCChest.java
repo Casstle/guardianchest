@@ -2,20 +2,17 @@ package me.twentyonez.guardianchest.block;
 
 import static net.minecraftforge.common.util.ForgeDirection.DOWN;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockChest;
-import net.minecraft.block.BlockContainer;
 import net.minecraft.client.particle.EffectRenderer;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.passive.EntityOcelot;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryLargeChest;
 import net.minecraft.item.Item;
@@ -23,13 +20,10 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
-import me.twentyonez.guardianchest.common.GCMainRegistry;
 import me.twentyonez.guardianchest.tile_entity.TileEntityGCChest;
-import me.twentyonez.guardianchest.util.ConfigHelper;
 import cpw.mods.fml.common.registry.LanguageRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -64,49 +58,31 @@ public class GCChest extends BlockChest {
      */
     @SideOnly(Side.CLIENT)
     @Override
-    public boolean addHitEffects(World worldObj, MovingObjectPosition target, EffectRenderer effectRenderer)
+    public boolean addHitEffects(World world, MovingObjectPosition target, EffectRenderer effectRenderer)
     {
         return true;
     }
 
-    /**
-     * Spawn particles for when the block is destroyed. Due to the nature
-     * of how this is invoked, the x/y/z locations are not always guaranteed
-     * to host your block. So be sure to do proper sanity checks before assuming
-     * that the location is this block.
-     *
-     * @param world The current world
-     * @param x X position to spawn the particle
-     * @param y Y position to spawn the particle
-     * @param z Z position to spawn the particle
-     * @param meta The metadata for the block before it was destroyed.
-     * @param effectRenderer A reference to the current effect renderer.
-     * @return True to prevent vanilla break particles from spawning.
-     */
 	@SideOnly(Side.CLIENT)
 	@Override
-    public void randomDisplayTick(World p_149725_1_, int p_149725_2_, int p_149725_3_, int p_149725_4_, Random rand) {
-        p_149725_1_.spawnParticle(
+    public void randomDisplayTick(World world, int x, int y, int z, Random rand) {
+        world.spawnParticle(
               "reddust", 
-              p_149725_2_ + 0.45F + (rand.nextGaussian() * 0.1D), 
-              p_149725_3_ + 1.05F + (rand.nextGaussian() * 0.01D), 
-              p_149725_4_ + 0.45F + (rand.nextGaussian() * 0.1D), 
+              x + 0.45F + (rand.nextGaussian() * 0.1D), 
+              y + 1.05F + (rand.nextGaussian() * 0.01D), 
+              z + 0.45F + (rand.nextGaussian() * 0.1D), 
               1.0F, 
               rand.nextGaussian() * 0.02D, 
               rand.nextGaussian() * 0.02D);
 	}
 
-    /**
-     * How many world ticks before ticking
-     */
+    @Override
     public int tickRate(World p_149738_1_)
     {
         return 30;
     }
-
-	 /**
-     * Called when the block is right clicked.
-     */	
+    
+    @Override
 	public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player, int metadata, float sideX, float sideY, float sideZ) {
 		TileEntityGCChest chest = (TileEntityGCChest) world.getTileEntity(x, y, z);
 		world.playSound(x + 0.5D, y + 0.5D, z + 0.5D, "random.chestopen", 0.4F, world.rand.nextFloat() * 0.1F + 0.9F, true);
@@ -126,10 +102,8 @@ public class GCChest extends BlockChest {
 		}
 	    return true;
 	}
-	
-	 /**
-     * Called when the block is placed in the world.
-     */
+    
+    @Override
     public void onBlockPlacedBy(World p_149689_1_, int p_149689_2_, int p_149689_3_, int p_149689_4_, EntityLivingBase p_149689_5_, ItemStack p_149689_6_)
     {
         Block block = p_149689_1_.getBlock(p_149689_2_, p_149689_3_, p_149689_4_ - 1);
@@ -200,10 +174,7 @@ public class GCChest extends BlockChest {
         }
     }
     
-    /**
-     * Lets the block know when one of its neighbor changes. Doesn't know which neighbor changed (coordinates passed are
-     * their own) Args: x, y, z, neighbor Block
-     */
+    @Override
     public void onNeighborBlockChange(World p_149695_1_, int p_149695_2_, int p_149695_3_, int p_149695_4_, Block p_149695_5_)
     {
         super.onNeighborBlockChange(p_149695_1_, p_149695_2_, p_149695_3_, p_149695_4_, p_149695_5_);
@@ -215,6 +186,7 @@ public class GCChest extends BlockChest {
         }
     }
     
+    @Override
     public void breakBlock(World p_149749_1_, int p_149749_2_, int p_149749_3_, int p_149749_4_, Block p_149749_5_, int p_149749_6_)
     {
         TileEntityGCChest tileentitychest = (TileEntityGCChest)p_149749_1_.getTileEntity(p_149749_2_, p_149749_3_, p_149749_4_);
@@ -261,6 +233,7 @@ public class GCChest extends BlockChest {
         super.breakBlock(p_149749_1_, p_149749_2_, p_149749_3_, p_149749_4_, p_149749_5_, p_149749_6_);
     }
     
+    @Override
     public IInventory func_149951_m(World p_149951_1_, int p_149951_2_, int p_149951_3_, int p_149951_4_)
     {
         Object object = (TileEntityGCChest)p_149951_1_.getTileEntity(p_149951_2_, p_149951_3_, p_149951_4_);
@@ -332,29 +305,28 @@ public class GCChest extends BlockChest {
             }
 
             EntityOcelot entityocelot = (EntityOcelot)iterator.next();
-            entityocelot1 = (EntityOcelot)entityocelot;
+            entityocelot1 = entityocelot;
         }
         while (!entityocelot1.isSitting());
 
         return true;
     }
-
-
-    /**
-     * Returns a new instance of a block's tile entity class. Called on placing the block.
-     */
+    
+    
+    @Override
     public TileEntity createNewTileEntity(World p_149915_1_, int p_149915_2_)
     {
-        TileEntityGCChest tileentitychest = new TileEntityGCChest();
-        return tileentitychest;
+        return new TileEntityGCChest();
     }
     
     @SideOnly(Side.CLIENT)
+    @Override
     public void registerBlockIcons(IIconRegister p_149651_1_)
     {
         this.blockIcon = p_149651_1_.registerIcon("guardianchest:GCChest");
     }
-
+    
+    @Override
     public Item getItemDropped(int p_149650_1_, Random p_149650_2_, int p_149650_3_)
     {
 		return null;

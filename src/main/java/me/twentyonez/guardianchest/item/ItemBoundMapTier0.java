@@ -3,7 +3,7 @@ package me.twentyonez.guardianchest.item;
 import java.util.List;
 import java.util.Random;
 
-import me.twentyonez.guardianchest.common.GCMainRegistry;
+import me.twentyonez.guardianchest.GuardianChest;
 import me.twentyonez.guardianchest.util.ConfigHelper;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.player.EntityPlayer;
@@ -28,7 +28,7 @@ public class ItemBoundMapTier0 extends Item {
 	public ItemBoundMapTier0() {
 		setUnlocalizedName("boundMapTier0");
 		setTextureName("guardianchest:boundMapTier0");
-		setCreativeTab(CreativeTabs.tabMisc);
+		setCreativeTab(GuardianChest.GCtab);
 		setMaxStackSize(1);
 	}
 	
@@ -64,7 +64,7 @@ public class ItemBoundMapTier0 extends Item {
 	    	                1.0F, 
 	    	                rand.nextGaussian() * 0.02D);
 	    		}
-	    		return new ItemStack(GCMainRegistry.boundMapTier1);
+	    		return new ItemStack(GuardianChest.boundMapTier1);
 	    	} else {
 	        	if(world.isRemote) {
 	        		player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.boundMapTier0.Warning").replace("%1", ConfigHelper.levelCostBoundMapTier1.toString())));

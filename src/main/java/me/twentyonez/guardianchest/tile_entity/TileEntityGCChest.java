@@ -1,24 +1,14 @@
 package me.twentyonez.guardianchest.tile_entity;
 
-import java.util.Calendar;
-import java.util.Iterator;
-import java.util.List;
-
 import cpw.mods.fml.common.registry.LanguageRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.ContainerChest;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.InventoryLargeChest;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntityChest;
-import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import me.twentyonez.guardianchest.block.GCChest;
 import me.twentyonez.guardianchest.util.ConfigHelper;
@@ -55,10 +45,9 @@ public class TileEntityGCChest extends TileEntityChest {
     /** The number of players currently using this chest */
     public int numPlayersUsing;
     /** Server sync counter (once per 20 ticks) */
-    private int ticksSinceSync;
+    // private int ticksSinceSync;
     private int cachedChestType;
     private String customName;
-    private static final String __OBFID = "CL_00000346";
 
     public boolean checkSecurity() {
     	if (creationDate != 0) {
@@ -77,7 +66,7 @@ public class TileEntityGCChest extends TileEntityChest {
     public void processActivate(EntityPlayer player, World world, int x, int y, int z) {
     	long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
     	if(!world.isRemote) {
-	        if ((owner==player.getDisplayName()) || (owner=="any") || (secureTimeLeft < 0)) {
+	        if (owner.equals(player.getCommandSenderName()) || owner.equals("any") || (secureTimeLeft < 0)) {
 	        	world.setBlockToAir(x, y, z);
 	        } else {
 	        	if (secureTimeLeft >= 60) {
@@ -94,7 +83,7 @@ public class TileEntityGCChest extends TileEntityChest {
     }
     
     public void registerOwner(EntityPlayer player, World world, int x, int y, int z) {
-    	owner = player.getDisplayName();
+    	owner = player.getCommandSenderName();
     	creationDate = this.worldObj.getTotalWorldTime();
     	world.notifyBlockChange(x, y, z, blockType);
     }
@@ -110,26 +99,19 @@ public class TileEntityGCChest extends TileEntityChest {
         this.cachedChestType = p_i2350_1_;
     }
 
-    /**
-     * Returns the number of slots in the inventory.
-     */
+    @Override
     public int getSizeInventory()
     {
         return 254;
     }
-
-    /**
-     * Returns the stack in slot i
-     */
+    
+    @Override
     public ItemStack getStackInSlot(int p_70301_1_)
     {
         return this.chestContents[p_70301_1_];
     }
-
-    /**
-     * Removes from an inventory slot (first arg) up to a specified number (second arg) of items and returns them in a
-     * new stack.
-     */
+    
+    @Override
     public ItemStack decrStackSize(int p_70298_1_, int p_70298_2_)
     {
         if (this.chestContents[p_70298_1_] != null)
@@ -162,10 +144,7 @@ public class TileEntityGCChest extends TileEntityChest {
         }
     }
 
-    /**
-     * When some containers are closed they call this on each slot, then drop whatever it returns as an EntityItem -
-     * like when you close a workbench GUI.
-     */
+    @Override
     public ItemStack getStackInSlotOnClosing(int p_70304_1_)
     {
         if (this.chestContents[p_70304_1_] != null)
@@ -179,10 +158,8 @@ public class TileEntityGCChest extends TileEntityChest {
             return null;
         }
     }
-
-    /**
-     * Sets the given item stack to the specified slot in the inventory (can be crafting or armor sections).
-     */
+    
+    @Override
     public void setInventorySlotContents(int p_70299_1_, ItemStack p_70299_2_)
     {
         this.chestContents[p_70299_1_] = p_70299_2_;
@@ -194,28 +171,26 @@ public class TileEntityGCChest extends TileEntityChest {
 
         this.markDirty();
     }
-
-    /**
-     * Returns the name of the inventory
-     */
+    
+    @Override
     public String getInventoryName()
     {
         return this.hasCustomInventoryName() ? this.customName : LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name");
     }
-
-    /**
-     * Returns if the inventory is named
-     */
+    
+    @Override
     public boolean hasCustomInventoryName()
     {
         return this.customName != null && this.customName.length() > 0;
     }
-
+    
+    @Override
     public void func_145976_a(String p_145976_1_)
     {
         this.customName = p_145976_1_;
     }
-
+    
+    @Override
     public void readFromNBT(NBTTagCompound p_145839_1_)
     {
         super.readFromNBT(p_145839_1_);
@@ -240,7 +215,8 @@ public class TileEntityGCChest extends TileEntityChest {
         this.owner = p_145839_1_.getString("owner");
         this.creationDate = p_145839_1_.getLong("creationDate");
     }
-
+    
+    @Override
     public void writeToNBT(NBTTagCompound p_145841_1_)
     {
         super.writeToNBT(p_145841_1_);
@@ -267,37 +243,29 @@ public class TileEntityGCChest extends TileEntityChest {
         p_145841_1_.setString("owner", owner);
         p_145841_1_.setLong("creationDate", creationDate);
     }
-
-    /**
-     * Returns the maximum stack size for a inventory slot.
-     */
+    
+    @Override
     public int getInventoryStackLimit()
     {
         return 64;
     }
-
-    /**
-     * Do not make give this method the name canInteractWith because it clashes with Container
-     */
+    
+    @Override
     public boolean isUseableByPlayer(EntityPlayer p_70300_1_)
     {
-        return this.worldObj.getTileEntity(this.xCoord, this.yCoord, this.zCoord) != this ? false : p_70300_1_.getDistanceSq((double)this.xCoord + 0.5D, (double)this.yCoord + 0.5D, (double)this.zCoord + 0.5D) <= 64.0D;
+        return worldObj.getTileEntity(this.xCoord, this.yCoord, this.zCoord) == this
+            && p_70300_1_.getDistanceSq((double) this.xCoord + 0.5D, (double) this.yCoord + 0.5D, (double) this.zCoord + 0.5D) <= 64.0D;
     }
-
-    /**
-     * Causes the TileEntity to reset all it's cached values for it's container Block, metadata and in the case of
-     * chests, the adjacent chest check
-     */
+    
+    @Override
     public void updateContainingBlockInfo()
     {
         super.updateContainingBlockInfo();
         this.adjacentChestChecked = false;
     }
-
-
-    /**
-     * Performs the check for adjacent chests to determine if this chest is double or not.
-     */
+    
+    
+    @Override
     public void checkForAdjacentChests()
     {
         this.adjacentChestChecked = false;
@@ -307,27 +275,13 @@ public class TileEntityGCChest extends TileEntityChest {
         this.adjacentChestZPos = null;
     }
 
-    private boolean func_145977_a(int p_145977_1_, int p_145977_2_, int p_145977_3_)
-    {
-        if (this.worldObj == null)
-        {
-            return false;
-        }
-        else
-        {
-            Block block = this.worldObj.getBlock(p_145977_1_, p_145977_2_, p_145977_3_);
-            return block instanceof GCChest && ((GCChest)block).field_149956_a == this.func_145980_j();
-        }
-    }
-
+    @Override
     public void updateEntity()
     {
         super.updateEntity();
     }
-
-    /**
-     * Called when a client event is received with the event number and argument, see World.sendClientEvent
-     */
+    
+    @Override
     public boolean receiveClientEvent(int p_145842_1_, int p_145842_2_)
     {
         if (p_145842_1_ == 1)
@@ -340,7 +294,8 @@ public class TileEntityGCChest extends TileEntityChest {
             return super.receiveClientEvent(p_145842_1_, p_145842_2_);
         }
     }
-
+    
+    @Override
     public void openInventory()
     {
         if (this.numPlayersUsing < 0)
@@ -353,7 +308,8 @@ public class TileEntityGCChest extends TileEntityChest {
         this.worldObj.notifyBlocksOfNeighborChange(this.xCoord, this.yCoord, this.zCoord, this.getBlockType());
         this.worldObj.notifyBlocksOfNeighborChange(this.xCoord, this.yCoord - 1, this.zCoord, this.getBlockType());
     }
-
+    
+    @Override
     public void closeInventory()
     {
         if (this.getBlockType() instanceof GCChest)
@@ -364,25 +320,22 @@ public class TileEntityGCChest extends TileEntityChest {
             this.worldObj.notifyBlocksOfNeighborChange(this.xCoord, this.yCoord - 1, this.zCoord, this.getBlockType());
         }
     }
-
-    /**
-     * Returns true if automation is allowed to insert the given stack (ignoring stack size) into the given slot.
-     */
+    
+    @Override
     public boolean isItemValidForSlot(int p_94041_1_, ItemStack p_94041_2_)
     {
         return true;
     }
-
-    /**
-     * invalidates a tile entity
-     */
+    
+    @Override
     public void invalidate()
     {
         super.invalidate();
         this.updateContainingBlockInfo();
         this.checkForAdjacentChests();
     }
-
+    
+    @Override
     public int func_145980_j()
     {
         if (this.cachedChestType == -1)

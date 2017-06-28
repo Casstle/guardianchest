@@ -2,10 +2,10 @@ package me.twentyonez.guardianchest.compat;
 
 import java.util.List;
 
+import me.twentyonez.guardianchest.common.EnumInventoryType;
+import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
 import me.twentyonez.guardianchest.util.ConfigHelper;
-import micdoodle8.mods.galacticraft.core.entities.player.GCEntityPlayerMP;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 
 /**
@@ -26,21 +26,20 @@ public class GCBattlegear {
     private GCBattlegear() {
 
     }
-
-    public static void addItems(List<ItemStack> items, List<Integer> slot, List<String> type, EntityPlayer player, Integer saveItems, Integer sbInventoryLevel) {
+	
+	public static void addItems(List<ItemStackTypeSlot> itemStackTypeSlots, EntityPlayer player, Integer saveItems, Integer levelSoulBoundInventory) {
         if (isInstalled()) {
 			// Get main inventory
-			for(int i = FIRST_SLOT; i <= LAST_SLOT; i++){
-				ItemStack droppedItem = player.inventory.getStackInSlot(i);
-				if (droppedItem != null) {
-					items.add(droppedItem);
-	                slot.add(i);
-	                type.add("battlegear");
-	                if ((saveItems != 0) || GCsoulBinding.keepItem(droppedItem, i, "battlegear", player, sbInventoryLevel)) {
-                    	player.inventory.setInventorySlotContents(i, null);
+			for(int indexSlot = FIRST_SLOT; indexSlot <= LAST_SLOT; indexSlot++){
+				final ItemStack itemStackInSlot = player.inventory.getStackInSlot(indexSlot);
+				if (itemStackInSlot != null) {
+					final ItemStackTypeSlot itemStackTypeSlot = new ItemStackTypeSlot(GCminecraft.applyItemDamage(itemStackInSlot), EnumInventoryType.BATTLEGEAR, indexSlot);
+					itemStackTypeSlots.add(itemStackTypeSlot);
+	                if ((saveItems != 0) || GCsoulBinding.keepItem(itemStackTypeSlot, player, levelSoulBoundInventory)) {
+                    	player.inventory.setInventorySlotContents(indexSlot, null);
 	                } else if (ConfigHelper.makeAllItemsDrop) {
-                    	player.inventory.addItemStackToInventory(droppedItem);
-                    	player.inventory.setInventorySlotContents(i, null);
+                    	player.inventory.addItemStackToInventory(itemStackInSlot);
+                    	player.inventory.setInventorySlotContents(indexSlot, null);
                     }
 				}
 			}
