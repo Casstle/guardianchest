@@ -186,12 +186,14 @@ public class GCEventHandler {
 			
             // Get the player death coords. If it's out of the world, get last slept location. If player did
 			// not sleep yet, get world spawn coords.
+			GuardianChest.logger.info(String.format("saveItems %d", saveItems));
 			if (saveItems != 0) {
 				int posX1 = MathHelper.floor_double(entityPlayer.posX);
 				int posY1 = MathHelper.floor_double(entityPlayer.posY);
 				int posZ1 = MathHelper.floor_double(entityPlayer.posZ);
 				
 				World world = entityPlayer.worldObj;
+				GuardianChest.logger.info(String.format("position DIM%d @ (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
 				
 				if ((posY1 <= 0) || (saveItems == 2) || ((saveItems == -1) && (ConfigHelper.defaultsToTier2))) {
 					ChunkCoordinates bed = entityPlayer.getBedLocation(entityPlayer.dimension);
@@ -212,46 +214,63 @@ public class GCEventHandler {
 				}
 				
 				// Look for a free spot
-				int window = ConfigHelper.maxRadiusToSearchForAFreeSpot;
-				if (!isFreeSpot(world, posX1, posY1, posZ1)) {
+				final int radius = ConfigHelper.maxRadiusToSearchForAFreeSpot;
+				GuardianChest.logger.info(String.format("maxRadiusToSearchForAFreeSpot %d", radius));
+				if (!isFreeSpot(world, posX1, posY1, posZ1, true)) {
+					GuardianChest.logger.info("Initial position is bad, searching...");
 					int newX = posX1;
 					int newY = posY1;
 					int newZ = posZ1;
-					double isFreeSpotMap[][][] = new double [window * 2 + 1] [window * 2 + 1] [window * 2 + 1];
-					double minDistance = Double.MAX_VALUE;
-					for (int x = -window; x <= window; x++){
-						for (int z = -window; z <= window; z++){
-							for (int y = -window; y <= window; y++){
-								//System.out.println("Looking at " + (posX1 + x) + "," + (posY1 + y) + "," + (posZ1 + z) + ": " + isFreeSpot(world, posX1 + x, posY1 + y, posZ1 + z));
-								//System.out.println("Current min distance: " + minDistance);
-								if (isFreeSpot(world, posX1 + x, posY1 + y, posZ1 + z)) {
-									isFreeSpotMap[x+window][y+window][z+window] = MathHelper.sqrt_double((x*x) + (y*y) + (z*z));
-									//System.out.println("Spot distance C: " + MathHelper.sqrt_double((x*x) + (y*y) + (z*z)));
-									//System.out.println("Spot distance V: " + isFreeSpotMap[x+window][y+window][z+window]);
-									//System.out.println("Is it smaller? " + (isFreeSpotMap[x+window][y+window][z+window] < minDistance));
-									if (isFreeSpotMap[x+window][y+window][z+window] <= minDistance) {
-										minDistance = isFreeSpotMap[x+window][y+window][z+window];
+					int distanceClosest = Integer.MAX_VALUE;
+					for (int x = -radius; x <= radius; x++) {
+						for (int z = -radius; z <= radius; z++) {
+							for (int y = - 2 * radius; y <= 2 * radius; y++) {
+								if (isFreeSpot(world, posX1 + x, posY1 + y, posZ1 + z, true)) {
+									GuardianChest.logger.info(String.format("found free spot at (%d %d %d)", posX1 + x, posY1 + y, posZ1 + z));
+									final int distanceCurrent = (x * x) + (y * y) + (z * z);
+									if (distanceCurrent < distanceClosest) {
+										GuardianChest.logger.info(String.format("new free spot is closed: %d -> %d", distanceClosest, distanceCurrent));
+										distanceClosest = distanceCurrent;
 										newX = posX1 + x;
 										newY = posY1 + y;
 										newZ = posZ1 + z;
-										//System.out.println("New Distance: " + minDistance);
 									}
 								}
 							}
 						}
 					}
-					if (minDistance != Double.MAX_VALUE) {
-						// Free spot found?
+					GuardianChest.logger.info(String.format("Search closest distance is %d at (%d %d %d)", distanceClosest, newX, newY, newZ));
+					if (distanceClosest != Integer.MAX_VALUE) {// (free spot found)
+						GuardianChest.logger.info("Search was a success!");
 						posX1 = newX;
 						posY1 = newY;
 						posZ1 = newZ;
+					} else {// (no free spot, use top solid block if possible)
+						newY = world.getTopSolidOrLiquidBlock(posX1, posZ1);
+						GuardianChest.logger.info(String.format("Search failed, checking top block at (%d %d %d)", posX1, newY, posZ1));
+						if ( isFreeSpot(world, posX1, newY, posZ1, false) ) {
+							GuardianChest.logger.info("Search failed, but top block is good to go");
+							posY1 = newY;
+						} else if ( posY1 <= 2
+						         || posY1 >= 255 ) {
+							// probably in empty space, but current position is bad, so we defaults to 128 
+							GuardianChest.logger.info("Search failed, current position is bad, using defaults of 128");
+							posY1 = 128;
+						}
 					}
 				}
 				
 				// Create chest
+				GuardianChest.logger.error(String.format("Creating GuardianChest at DIM %d (%d %d %d)",
+				                                         world.provider.dimensionId, posX1, posY1, posZ1));
 				world.setBlock(posX1, posY1, posZ1, GCBlocks.GCChest, 0, 2);
-				TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
-
+				final TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
+				GuardianChest.logger.info(String.format("tileEntityGCChest is %s", tileEntityGCChest));
+				if (tileEntityGCChest == null) {
+					GuardianChest.logger.error(String.format("GuardianChest without tile entity at DIM %d (%d %d %d)",
+					                                         world.provider.dimensionId, posX1, posY1, posZ1));
+				}
+				
 				// Inform related player of its existence
 				if ((!world.isRemote) && (ConfigHelper.informCoords)) {
 		    		final String message = LanguageRegistry.instance().getStringLocalization("desc.SpawnLocation.Warning")
@@ -261,18 +280,17 @@ public class GCEventHandler {
 					
 					entityPlayer.addChatComponentMessage(new ChatComponentText(message));
 		    	}
-
 				
 				// Dump player inventory into chest 
 				int indexChestSlot = 0;
 				
 				// Return a BoundMapTier0 to the chest if the chest was a Tier2.
-				if (saveItems == 2 && ConfigHelper.returnChestToInventory) {
+				if (saveItems == 2 && ConfigHelper.returnChestToInventory && tileEntityGCChest != null) {
 					tileEntityGCChest.setInventorySlotContents(indexChestSlot, new ItemStack(GuardianChest.boundMapTier0));
 					indexChestSlot++;
 				}
 				// Add an ItemGuardianTier0 to chest.
-				if (saveItems != -1 && ConfigHelper.returnChestToInventory) {
+				if (saveItems != -1 && ConfigHelper.returnChestToInventory && tileEntityGCChest != null) {
 					if (ConfigHelper.levelCostGuardianTier1 != 0) {
 						tileEntityGCChest.setInventorySlotContents(indexChestSlot, new ItemStack(GuardianChest.guardianTier0));
 					} else {
@@ -291,7 +309,8 @@ public class GCEventHandler {
 				// Dump collected inventory into chest				
 				for (ItemStackTypeSlot itemStackTypeSlot : itemStackTypeSlots) {
 					if (!GCsoulBinding.keepItem(itemStackTypeSlot, entityPlayer, levelSoulBoundInventory)) {
-						if (indexChestSlot > tileEntityGCChest.getSizeInventory() - 1) {// Chest is full 
+						if ( tileEntityGCChest == null
+						  || indexChestSlot > tileEntityGCChest.getSizeInventory() - 1 ) {// Chest is missing or full 
 							// Returning item to player's inventory, so it drops
 							while (!entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
 								entityPlayer.dropOneItem(true);
@@ -308,17 +327,20 @@ public class GCEventHandler {
 						}
 					}
 				}
-				if(!world.isRemote)
-		        {
+				if (!world.isRemote && tileEntityGCChest != null) {
 	                tileEntityGCChest.registerOwner(entityPlayer, world, posX1, posY1, posZ1);
 		        }
 			}
 		}
 	}
 	
-    private static boolean isFreeSpot(World world, int posX, int posY, int posZ) {
+    private static boolean isFreeSpot(final World world, final int posX, final int posY, final int posZ, final boolean isRequiringSolidBlock) {
+		if (posY < 1 || posY > 255) {// ignore bottom (we need solid block below) and top of world (some mods are using it)
+			return false;
+		}
 		final Block block = world.getBlock(posX, posY, posZ);
-        return world.getBlock(posX, posY - 1, posZ).getMaterial().isSolid()
+        return ( !isRequiringSolidBlock
+              || world.getBlock(posX, posY - 1, posZ).getMaterial().isSolid() )
             && ( block.isAir(world, posX, posY, posZ)
               || block.getMaterial().isLiquid()
               || block.isReplaceable(world, posX, posY, posZ) );
