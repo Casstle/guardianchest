@@ -1,6 +1,5 @@
 package me.twentyonez.guardianchest.compat;
 
-import me.twentyonez.guardianchest.GuardianChest;
 import me.twentyonez.guardianchest.common.EnumInventoryType;
 import me.twentyonez.guardianchest.common.ItemStackTypeSlot;
 import me.twentyonez.guardianchest.util.ConfigHelper;
