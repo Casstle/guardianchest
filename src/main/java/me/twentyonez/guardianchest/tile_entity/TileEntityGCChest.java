@@ -66,7 +66,9 @@ public class TileEntityGCChest extends TileEntityChest {
     public void processActivate(EntityPlayer player, World world, int x, int y, int z) {
     	long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
     	if(!world.isRemote) {
-	        if (owner.equals(player.getCommandSenderName()) || owner.equals("any") || (secureTimeLeft < 0)) {
+	        if ( (!player.isSneaking())
+              && (!player.capabilities.isCreativeMode)
+	          && (owner.equals(player.getCommandSenderName()) || owner.equals("any") || (secureTimeLeft < 0)) ) {
 	        	world.setBlockToAir(x, y, z);
 	        } else {
 	        	if (secureTimeLeft >= 60) {
