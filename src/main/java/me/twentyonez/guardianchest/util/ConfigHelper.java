@@ -39,6 +39,8 @@ public class ConfigHelper {
 	public static boolean makeAllItemsDrop;
 	public static Integer maxSoulBoundItems;
 	
+	public static boolean enableDebugLogs;
+	
 	public static void setupConfig(Configuration cfg) {
 		try {
 			// Damage configuration
@@ -82,6 +84,10 @@ public class ConfigHelper {
 			Property returnChestToInventoryProp = cfg.get(LanguageRegistry.instance().getStringLocalization("config.Category.General"), "returnChestToInventory", true);
 			returnChestToInventoryProp.comment = LanguageRegistry.instance().getStringLocalization("config.Inform.returnChestToInventory").replace("%1", LanguageRegistry.instance().getStringLocalization("item.guardianTier0.name\t")).replace("%2", LanguageRegistry.instance().getStringLocalization("item.boundMapTier0.name"));
 			returnChestToInventory = returnChestToInventoryProp.getBoolean(true);
+			
+			Property enableDebugLogsProp = cfg.get(LanguageRegistry.instance().getStringLocalization("config.Category.General"), "enableDebugLogs", false);
+			enableDebugLogsProp.comment = LanguageRegistry.instance().getStringLocalization("config.enableDebugLogs");
+			enableDebugLogs = enableDebugLogsProp.getBoolean(false);
 			
 			// Soulbinding configuration
 			Property anyEnchantSoulBindsProp = cfg.get(LanguageRegistry.instance().getStringLocalization("config.Category.Soulbinding"), "anyEnchantSoulBinds", false);

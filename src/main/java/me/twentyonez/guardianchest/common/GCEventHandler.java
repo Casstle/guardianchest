@@ -186,14 +186,18 @@ public class GCEventHandler {
 			
             // Get the player death coords. If it's out of the world, get last slept location. If player did
 			// not sleep yet, get world spawn coords.
-			GuardianChest.logger.info(String.format("saveItems %d", saveItems));
+			if (ConfigHelper.enableDebugLogs) {
+				GuardianChest.logger.info(String.format("saveItems %d", saveItems));
+			}
 			if (saveItems != 0) {
 				int posX1 = MathHelper.floor_double(entityPlayer.posX);
 				int posY1 = MathHelper.floor_double(entityPlayer.posY);
 				int posZ1 = MathHelper.floor_double(entityPlayer.posZ);
 				
 				World world = entityPlayer.worldObj;
-				GuardianChest.logger.info(String.format("position DIM%d @ (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
+				if (ConfigHelper.enableDebugLogs) {
+					GuardianChest.logger.info(String.format("position DIM%d @ (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
+				}
 				
 				if ((posY1 <= 0) || (saveItems == 2) || ((saveItems == -1) && (ConfigHelper.defaultsToTier2))) {
 					ChunkCoordinates bed = entityPlayer.getBedLocation(entityPlayer.dimension);
@@ -215,9 +219,13 @@ public class GCEventHandler {
 				
 				// Look for a free spot
 				final int radius = ConfigHelper.maxRadiusToSearchForAFreeSpot;
-				GuardianChest.logger.info(String.format("maxRadiusToSearchForAFreeSpot %d", radius));
+				if (ConfigHelper.enableDebugLogs) {
+					GuardianChest.logger.info(String.format("maxRadiusToSearchForAFreeSpot %d", radius));
+				}
 				if (!isFreeSpot(world, posX1, posY1, posZ1, true)) {
-					GuardianChest.logger.info("Initial position is bad, searching...");
+					if (ConfigHelper.enableDebugLogs) {
+						GuardianChest.logger.info("Initial position is bad, searching...");
+					}
 					int newX = posX1;
 					int newY = posY1;
 					int newZ = posZ1;
@@ -226,10 +234,14 @@ public class GCEventHandler {
 						for (int z = -radius; z <= radius; z++) {
 							for (int y = - 2 * radius; y <= 2 * radius; y++) {
 								if (isFreeSpot(world, posX1 + x, posY1 + y, posZ1 + z, true)) {
-									GuardianChest.logger.info(String.format("found free spot at (%d %d %d)", posX1 + x, posY1 + y, posZ1 + z));
+									if (ConfigHelper.enableDebugLogs) {
+										GuardianChest.logger.info(String.format("found free spot at (%d %d %d)", posX1 + x, posY1 + y, posZ1 + z));
+									}
 									final int distanceCurrent = (x * x) + (y * y) + (z * z);
 									if (distanceCurrent < distanceClosest) {
-										GuardianChest.logger.info(String.format("new free spot is closed: %d -> %d", distanceClosest, distanceCurrent));
+										if (ConfigHelper.enableDebugLogs) {
+											GuardianChest.logger.info(String.format("new free spot is closer: %d -> %d", distanceClosest, distanceCurrent));
+										}
 										distanceClosest = distanceCurrent;
 										newX = posX1 + x;
 										newY = posY1 + y;
@@ -239,33 +251,42 @@ public class GCEventHandler {
 							}
 						}
 					}
-					GuardianChest.logger.info(String.format("Search closest distance is %d at (%d %d %d)", distanceClosest, newX, newY, newZ));
+					if (ConfigHelper.enableDebugLogs) {
+						GuardianChest.logger.info(String.format("Search closest distance is %d at (%d %d %d)", distanceClosest, newX, newY, newZ));
+					}
 					if (distanceClosest != Integer.MAX_VALUE) {// (free spot found)
-						GuardianChest.logger.info("Search was a success!");
+						if (ConfigHelper.enableDebugLogs) {
+							GuardianChest.logger.info("Search was a success!");
+						}
 						posX1 = newX;
 						posY1 = newY;
 						posZ1 = newZ;
 					} else {// (no free spot, use top solid block if possible)
 						newY = world.getTopSolidOrLiquidBlock(posX1, posZ1);
-						GuardianChest.logger.info(String.format("Search failed, checking top block at (%d %d %d)", posX1, newY, posZ1));
+						if (ConfigHelper.enableDebugLogs) {
+							GuardianChest.logger.info(String.format("Search failed, checking top block at (%d %d %d)", posX1, newY, posZ1));
+						}
 						if ( isFreeSpot(world, posX1, newY, posZ1, false) ) {
-							GuardianChest.logger.info("Search failed, but top block is good to go");
+							if (ConfigHelper.enableDebugLogs) {
+								GuardianChest.logger.info("Search failed, but top block is good to go");
+							}
 							posY1 = newY;
 						} else if ( posY1 <= 2
 						         || posY1 >= 255 ) {
 							// probably in empty space, but current position is bad, so we defaults to 128 
-							GuardianChest.logger.info("Search failed, current position is bad, using defaults of 128");
+							if (ConfigHelper.enableDebugLogs) {
+								GuardianChest.logger.info("Search failed, current position is bad, using defaults of 128");
+							}
 							posY1 = 128;
 						}
 					}
 				}
 				
 				// Create chest
-				GuardianChest.logger.error(String.format("Creating GuardianChest at DIM %d (%d %d %d)",
+				GuardianChest.logger.info(String.format("Creating GuardianChest at DIM %d (%d %d %d)",
 				                                         world.provider.dimensionId, posX1, posY1, posZ1));
 				world.setBlock(posX1, posY1, posZ1, GCBlocks.GCChest, 0, 2);
 				final TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
-				GuardianChest.logger.info(String.format("tileEntityGCChest is %s", tileEntityGCChest));
 				if (tileEntityGCChest == null) {
 					GuardianChest.logger.error(String.format("GuardianChest without tile entity at DIM %d (%d %d %d)",
 					                                         world.provider.dimensionId, posX1, posY1, posZ1));
@@ -301,7 +322,7 @@ public class GCEventHandler {
 				
 				
 				
-				if (GuardianChest.DEBUG) {
+				if (ConfigHelper.enableDebugLogs) {
 					GuardianChest.logger.info(String.format("Before dump into chest %s (%d) level %d",
 					                                        itemStackTypeSlots, itemStackTypeSlots.size(), levelSoulBoundInventory));
 				}
@@ -318,7 +339,7 @@ public class GCEventHandler {
 							
 						} else {// Filling chest
 							
-							if (GuardianChest.DEBUG) {
+							if (ConfigHelper.enableDebugLogs) {
 								GuardianChest.logger.info(String.format("Adding to chest[%d] of %s",
 								                                        indexChestSlot, itemStackTypeSlot.itemStack));
 							}
