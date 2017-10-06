@@ -356,14 +356,14 @@ public class GCEventHandler {
 	}
 	
     private static boolean isFreeSpot(final World world, final int posX, final int posY, final int posZ, final boolean isRequiringSolidBlock) {
-		if (posY < 1 || posY > 255) {// ignore bottom (we need solid block below) and top of world (some mods are using it)
+		if (posY < 1 || posY > 255) {// ignore bottom (we might need a solid block below) and top of world (some mods are using it)
 			return false;
 		}
 		final Block block = world.getBlock(posX, posY, posZ);
         return ( !isRequiringSolidBlock
               || world.getBlock(posX, posY - 1, posZ).getMaterial().isSolid() )
+            && ( !block.getMaterial().isLiquid() )
             && ( block.isAir(world, posX, posY, posZ)
-              || block.getMaterial().isLiquid()
               || block.isReplaceable(world, posX, posY, posZ) );
     }
 
