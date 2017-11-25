@@ -111,7 +111,13 @@ public class GCEventHandler {
 	public void onPlayerDeath(LivingDeathEvent event) {
 		if (event.entityLiving instanceof EntityPlayer) {
 			
-			EntityPlayer entityPlayer = (EntityPlayer) event.entityLiving;
+			final EntityPlayer entityPlayer = (EntityPlayer) event.entityLiving;
+			
+			if (event.isCanceled()) {
+				GuardianChest.logger.info(String.format("Death cancelled, skipping guardian chest creation for %s", entityPlayer));
+				return;
+			}
+			
 			GCsoulBinding.startCounting(entityPlayer);
 			
 			// Check if config file defines the Guardian Stone as a requirement for the chest to work 
@@ -333,8 +339,20 @@ public class GCEventHandler {
 						if ( tileEntityGCChest == null
 						  || indexChestSlot > tileEntityGCChest.getSizeInventory() - 1 ) {// Chest is missing or full 
 							// Returning item to player's inventory, so it drops
-							while (!entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
+							int countdown = 100;
+							while ( countdown > 0
+							     && itemStackTypeSlot.itemStack.stackSize > 0
+							     && !entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack) ) {
 								entityPlayer.dropOneItem(true);
+								countdown--;
+							}
+							if (countdown == 0) {
+								GuardianChest.logger.error(String.format("Unable to return %s of type %s in slot %d of chest %s for player %s",
+								                                         itemStackTypeSlot.itemStack,
+								                                         itemStackTypeSlot.type.getUnlocalizedName(),
+								                                         itemStackTypeSlot.indexSlot,
+								                                         tileEntityGCChest == null ? "-null-" : tileEntityGCChest.toString(),
+								                                         entityPlayer));
 							}
 							
 						} else {// Filling chest
