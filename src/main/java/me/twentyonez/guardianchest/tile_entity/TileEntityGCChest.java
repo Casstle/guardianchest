@@ -10,6 +10,8 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
+
+import me.twentyonez.guardianchest.GuardianChest;
 import me.twentyonez.guardianchest.block.GCChest;
 import me.twentyonez.guardianchest.util.ConfigHelper;
 
@@ -24,7 +26,8 @@ import me.twentyonez.guardianchest.util.ConfigHelper;
 
 public class TileEntityGCChest extends TileEntityChest {
 	
-	private String owner = "none";
+    private static final String OWNER_NONE = "[none]";
+	private String owner = OWNER_NONE;
 	private long creationDate = 0;
 	public boolean isSecure = true;
 	private ItemStack[] chestContents = new ItemStack[255];
@@ -48,7 +51,9 @@ public class TileEntityGCChest extends TileEntityChest {
     // private int ticksSinceSync;
     private int cachedChestType;
     private String customName;
-
+    
+    private boolean isDirty = false;
+    
     public boolean checkSecurity() {
     	if (creationDate != 0) {
 	    	long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
@@ -64,7 +69,12 @@ public class TileEntityGCChest extends TileEntityChest {
     }
     
     public void processActivate(EntityPlayer player, World world, int x, int y, int z) {
-    	long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
+    	if (owner.equals(OWNER_NONE)) {
+            GuardianChest.logger.info(String.format("Ignoring activation for chest with no owner in DIM%d at (%d %d %d)",
+                                      world.provider.dimensionId, x, y, z));
+            return;
+        }
+        final long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
     	if(!world.isRemote) {
 	        if ( (!player.isSneaking())
               && (!player.capabilities.isCreativeMode)
@@ -87,7 +97,24 @@ public class TileEntityGCChest extends TileEntityChest {
     public void registerOwner(EntityPlayer player, World world, int x, int y, int z) {
     	owner = player.getCommandSenderName();
     	creationDate = this.worldObj.getTotalWorldTime();
-    	world.notifyBlockChange(x, y, z, blockType);
+        markDirty();
+    }
+    
+    @Override
+    public void markDirty() {
+        if ( hasWorldObj()
+          && isSafeThread() ) {
+            super.markDirty();
+            isDirty = false;
+            worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+        } else {
+            isDirty = true;
+        }
+    }
+    
+    public static boolean isSafeThread() {
+        final String name = Thread.currentThread().getName();
+        return name.equals("Server thread") || name.equals("Client thread");
     }
     
     public TileEntityGCChest()
@@ -281,6 +308,10 @@ public class TileEntityGCChest extends TileEntityChest {
     public void updateEntity()
     {
         super.updateEntity();
+        
+        if (isDirty) {
+            markDirty();
+        }
     }
     
     @Override
