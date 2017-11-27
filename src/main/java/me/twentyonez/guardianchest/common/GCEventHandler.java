@@ -121,10 +121,12 @@ public class GCEventHandler {
 				GuardianChest.logger.info(String.format("Death cancelled, skipping guardian chest creation for %s", entityPlayer));
 				return;
 			}
-			final String threadName = Thread.currentThread().getName();
-			GuardianChest.logger.info(String.format("LivingDeathEvent of %s, isDead %s, thread %s, time %d",
-			                                        entityPlayer, entityPlayer.isDead, threadName,
-			                                        entityPlayer.worldObj.getTotalWorldTime()));
+			if (ConfigHelper.enableDebugLogs) {
+				final String threadName = Thread.currentThread().getName();
+				GuardianChest.logger.info(String.format("LivingDeathEvent of %s, isDead %s, thread %s, time %d",
+				                                         entityPlayer, entityPlayer.isDead, threadName,
+				                                         entityPlayer.worldObj.getTotalWorldTime()));
+			}
 			
 			final ArrayList<ItemStackTypeSlot> itemStackTypeSlots = getItemStackTypeSlots(entityPlayer);
 			
