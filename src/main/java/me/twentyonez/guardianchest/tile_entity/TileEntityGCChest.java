@@ -29,7 +29,6 @@ public class TileEntityGCChest extends TileEntityChest {
     private static final String OWNER_NONE = "[none]";
 	private String owner = OWNER_NONE;
 	private long creationDate = 0;
-	public boolean isSecure = true;
 	private ItemStack[] chestContents = new ItemStack[255];
     /** Determines if the check for adjacent chests has taken place. */
     public boolean adjacentChestChecked;
@@ -54,44 +53,31 @@ public class TileEntityGCChest extends TileEntityChest {
     
     private boolean isDirty = false;
     
-    public boolean checkSecurity() {
-    	if (creationDate != 0) {
-	    	long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
-	    	if  (secureTimeLeft < 0) {
-	    		isSecure = false;
-	    		return false;
-	    	} else {
-	    		return true;
-	    	}
-    	} else {
-    		return true;
-    	}
-    }
-    
     public void processActivate(EntityPlayer player, World world, int x, int y, int z) {
+        if (world.isRemote) {
+            return;
+        }
     	if (owner.equals(OWNER_NONE)) {
             GuardianChest.logger.info(String.format("Ignoring activation for chest with no owner in DIM%d at (%d %d %d)",
                                       world.provider.dimensionId, x, y, z));
             return;
         }
         final long secureTimeLeft = ConfigHelper.timeBeforeUnsecure - ((this.worldObj.getTotalWorldTime() - creationDate)/20);
-    	if(!world.isRemote) {
-	        if ( (!player.isSneaking())
-              && (!player.capabilities.isCreativeMode)
-	          && (owner.equals(player.getCommandSenderName()) || owner.equals("any") || (secureTimeLeft < 0)) ) {
-	        	world.setBlockToAir(x, y, z);
-	        } else {
-	        	if (secureTimeLeft >= 60) {
-		        	if (secureTimeLeft/60 == 1) {
-		        		player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Minute").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner)));
-		        	} else {
-		        		player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Minutes").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner).replace("%3", String.valueOf(secureTimeLeft/60))));
-		        	}
-	        	} else {
-	        		player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Seconds").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner).replace("%3", String.valueOf(secureTimeLeft))));
-	        	}
-	    	}
-		}
+        if ( (!player.isSneaking())
+          && (!player.capabilities.isCreativeMode)
+          && (owner.equals(player.getCommandSenderName()) || owner.equals("any") || (secureTimeLeft < 0)) ) {
+            world.setBlockToAir(x, y, z);
+        } else {
+            if (secureTimeLeft >= 60) {
+                if (secureTimeLeft/60 == 1) {
+                    player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Minute").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner)));
+                } else {
+                    player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Minutes").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner).replace("%3", String.valueOf(secureTimeLeft/60))));
+                }
+            } else {
+                player.addChatComponentMessage(new ChatComponentText(LanguageRegistry.instance().getStringLocalization("desc.guardianChestRightClick.Seconds").replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name")).replace("%2", owner).replace("%3", String.valueOf(secureTimeLeft))));
+            }
+        }
     }
     
     public void registerOwner(EntityPlayer player, World world, int x, int y, int z) {
@@ -251,7 +237,6 @@ public class TileEntityGCChest extends TileEntityChest {
         super.writeToNBT(p_145841_1_);
         NBTTagList nbttaglist = new NBTTagList();
         
-
         for (int i = 0; i < this.chestContents.length; ++i)
         {
             if (this.chestContents[i] != null)
