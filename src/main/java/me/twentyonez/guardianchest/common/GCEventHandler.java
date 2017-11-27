@@ -45,13 +45,15 @@ import cpw.mods.fml.common.registry.LanguageRegistry;
  * Based on NightKosh's GraveStone mod, Dr.Cyano's Lootable Corpses mod and Tyler15555's Death Chest mod.
  */
 public class GCEventHandler {
-
-	public GCEventHandler() {
+	
+	public static final GCEventHandler instance = new GCEventHandler();
+	
+	private GCEventHandler() {
 		
 	}
 	
-	Map<UUID, ArrayList<ItemStackTypeSlot>> player_itemStackTypeSlots = new HashMap<>(50);
-	Map<UUID, Integer> player_levelSoulBoundInventory = new HashMap<>(50);
+	private Map<UUID, ArrayList<ItemStackTypeSlot>> player_itemStackTypeSlots = new HashMap<>(50);
+	private Map<UUID, Integer> player_levelSoulBoundInventory = new HashMap<>(50);
 
 	private ArrayList<ItemStackTypeSlot> getItemStackTypeSlots(final EntityPlayer entityPlayer) {
 		return player_itemStackTypeSlots.computeIfAbsent(entityPlayer.getPersistentID(), k -> new ArrayList<>(64));
@@ -67,7 +69,7 @@ public class GCEventHandler {
 	
 	@SubscribeEvent(priority=EventPriority.LOWEST)
 	public void playerCraftsBoundMapTier0(ItemCraftedEvent event) {
-		EntityPlayer player = event.player;
+		final EntityPlayer player = event.player;
 		if (event.crafting.getItem() == GuardianChest.boundMapTier0) {
 			GuardianChest.guardianTier1.setContainerItem(GuardianChest.guardianTier1);
 			World world = player.worldObj;
@@ -109,12 +111,26 @@ public class GCEventHandler {
 	
 	@SubscribeEvent(priority=EventPriority.HIGH) 
 	public void onPlayerDeath(LivingDeathEvent event) {
-		if (event.entityLiving instanceof EntityPlayer) {
-			
+		if (!(event.entityLiving instanceof EntityPlayer)) {
+			return;
+		}
+		synchronized (instance) {
 			final EntityPlayer entityPlayer = (EntityPlayer) event.entityLiving;
 			
 			if (event.isCanceled()) {
 				GuardianChest.logger.info(String.format("Death cancelled, skipping guardian chest creation for %s", entityPlayer));
+				return;
+			}
+			final String threadName = Thread.currentThread().getName();
+			GuardianChest.logger.info(String.format("LivingDeathEvent of %s, isDead %s, thread %s, time %d",
+			                                        entityPlayer, entityPlayer.isDead, threadName,
+			                                        entityPlayer.worldObj.getTotalWorldTime()));
+			
+			final ArrayList<ItemStackTypeSlot> itemStackTypeSlots = getItemStackTypeSlots(entityPlayer);
+			
+			if (itemStackTypeSlots.size() != 0) {
+				GuardianChest.logger.info(String.format("Skipping redundant GuardianChest creation for player %s",
+				                                        entityPlayer.getCommandSenderName()));
 				return;
 			}
 			
@@ -122,7 +138,7 @@ public class GCEventHandler {
 			
 			// Check if config file defines the Guardian Stone as a requirement for the chest to work 
 			int saveItems = 0;
-			if(!ConfigHelper.requireGuardianIdol) {
+			if (!ConfigHelper.requireGuardianIdol) {
 				saveItems = -1;
 			} else {
 				if (entityPlayer.inventory.hasItem(GuardianChest.guardianTier2)) {
@@ -133,7 +149,7 @@ public class GCEventHandler {
 					saveItems = 1;
 				}
 			}
-
+			
 			// Check for Twilight Forest Charms of Keeping
 			int levelSoulBoundInventory = 0;
 			if (GCTwilightForest.isInstalled()) {
@@ -150,165 +166,86 @@ public class GCEventHandler {
 			}
 			setSoulBoundInventoryLevel(entityPlayer, levelSoulBoundInventory);
 			
-			final ArrayList<ItemStackTypeSlot> itemStackTypeSlots = getItemStackTypeSlots(entityPlayer);
-			
 			// Get Vanilla inventory
-        	GCminecraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			GCminecraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
 			
 			// Get Battlegear inventory
-            if (GCBattlegear.isInstalled()) {
-            	GCBattlegear.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
+			if (GCBattlegear.isInstalled()) {
+				GCBattlegear.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
 			
 			// Get Baubles inventory
-            if (GCBaubles.isInstalled()) {
-            	GCBaubles.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
-
+			if (GCBaubles.isInstalled()) {
+				GCBaubles.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
+			
 			// Get Galacticraft inventory
-            if (GCGalacticraft.isInstalled()) {
-            	GCGalacticraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
-
+			if (GCGalacticraft.isInstalled()) {
+				GCGalacticraft.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
+			
 			// Get RpgInventory inventory
-            if (GCRpgInventory.isInstalled()) {
-            	GCRpgInventory.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
-
+			if (GCRpgInventory.isInstalled()) {
+				GCRpgInventory.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
+			
 			// Get The Camping Mod inventory
-            if (GCCampingMod.isInstalled()) {
-            	GCCampingMod.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
-            
-            // Get the TravellersGear inventory
+			if (GCCampingMod.isInstalled()) {
+				GCCampingMod.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
+			
+			// Get the TravellersGear inventory
 			if (GCTravellersGear.isInstalled()) {
 				GCTravellersGear.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
 			}
 			
 			// Get Tinker's Construct inventory
-            if (GCTinkersConstruct.isInstalled()) {
-            	GCTinkersConstruct.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
-            }
+			if (GCTinkersConstruct.isInstalled()) {
+				GCTinkersConstruct.addItems(itemStackTypeSlots, entityPlayer, saveItems, levelSoulBoundInventory);
+			}
 			
-            // Get the player death coords. If it's out of the world, get last slept location. If player did
+			if (itemStackTypeSlots.size() == 0) {
+				GuardianChest.logger.info(String.format("Skipping empty GuardianChest creation for player %s",
+				                                        entityPlayer.getCommandSenderName()));
+				return;
+			}
+			entityPlayer.inventory.markDirty();
+			
+			// Get the player death coords. If it's out of the world, get last slept location. If player did
 			// not sleep yet, get world spawn coords.
 			if (ConfigHelper.enableDebugLogs) {
 				GuardianChest.logger.info(String.format("saveItems %d", saveItems));
 			}
 			if (saveItems != 0) {
-				int posX1 = MathHelper.floor_double(entityPlayer.posX);
-				int posY1 = MathHelper.floor_double(entityPlayer.posY);
-				int posZ1 = MathHelper.floor_double(entityPlayer.posZ);
-				
-				World world = entityPlayer.worldObj;
-				if (ConfigHelper.enableDebugLogs) {
-					GuardianChest.logger.info(String.format("position DIM%d @ (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
-				}
-				
-				if ((posY1 <= 0) || (saveItems == 2) || ((saveItems == -1) && (ConfigHelper.defaultsToTier2))) {
-					ChunkCoordinates bed = entityPlayer.getBedLocation(entityPlayer.dimension);
-					if (bed == null) {
-						world = MinecraftServer.getServer().worldServerForDimension(0);
-						bed = entityPlayer.getBedLocation(0);
-					}
-					
-					if (bed != null) {
-						posY1 = bed.posY;
-						posX1 = bed.posX+1;
-						posZ1 = bed.posZ+1;
-					} else {
-						posX1 = world.getSpawnPoint().posX+1;
-						posY1 = world.getSpawnPoint().posY;
-						posZ1 = world.getSpawnPoint().posZ;
-					}
-				}
-				
-				// Look for a free spot
-				final int radius = ConfigHelper.maxRadiusToSearchForAFreeSpot;
-				if (ConfigHelper.enableDebugLogs) {
-					GuardianChest.logger.info(String.format("maxRadiusToSearchForAFreeSpot %d", radius));
-				}
-				if (!isFreeSpot(world, posX1, posY1, posZ1, true)) {
-					if (ConfigHelper.enableDebugLogs) {
-						GuardianChest.logger.info("Initial position is bad, searching...");
-					}
-					int newX = posX1;
-					int newY = posY1;
-					int newZ = posZ1;
-					int distanceClosest = Integer.MAX_VALUE;
-					for (int x = -radius; x <= radius; x++) {
-						for (int z = -radius; z <= radius; z++) {
-							for (int y = - 2 * radius; y <= 2 * radius; y++) {
-								if (isFreeSpot(world, posX1 + x, posY1 + y, posZ1 + z, true)) {
-									if (ConfigHelper.enableDebugLogs) {
-										GuardianChest.logger.info(String.format("found free spot at (%d %d %d)", posX1 + x, posY1 + y, posZ1 + z));
-									}
-									final int distanceCurrent = (x * x) + (y * y) + (z * z);
-									if (distanceCurrent < distanceClosest) {
-										if (ConfigHelper.enableDebugLogs) {
-											GuardianChest.logger.info(String.format("new free spot is closer: %d -> %d", distanceClosest, distanceCurrent));
-										}
-										distanceClosest = distanceCurrent;
-										newX = posX1 + x;
-										newY = posY1 + y;
-										newZ = posZ1 + z;
-									}
-								}
-							}
-						}
-					}
-					if (ConfigHelper.enableDebugLogs) {
-						GuardianChest.logger.info(String.format("Search closest distance is %d at (%d %d %d)", distanceClosest, newX, newY, newZ));
-					}
-					if (distanceClosest != Integer.MAX_VALUE) {// (free spot found)
-						if (ConfigHelper.enableDebugLogs) {
-							GuardianChest.logger.info("Search was a success!");
-						}
-						posX1 = newX;
-						posY1 = newY;
-						posZ1 = newZ;
-					} else {// (no free spot, use top solid block if possible)
-						newY = world.getTopSolidOrLiquidBlock(posX1, posZ1);
-						if (ConfigHelper.enableDebugLogs) {
-							GuardianChest.logger.info(String.format("Search failed, checking top block at (%d %d %d)", posX1, newY, posZ1));
-						}
-						if ( isFreeSpot(world, posX1, newY, posZ1, false) ) {
-							if (ConfigHelper.enableDebugLogs) {
-								GuardianChest.logger.info("Search failed, but top block is good to go");
-							}
-							posY1 = newY;
-						} else if ( posY1 <= 2
-						         || posY1 >= 255 ) {
-							// probably in empty space, but current position is bad, so we defaults to 128 
-							if (ConfigHelper.enableDebugLogs) {
-								GuardianChest.logger.info("Search failed, current position is bad, using defaults of 128");
-							}
-							posY1 = 128;
-						}
-					}
-				}
+				final ChunkCoordinates posChest = new ChunkCoordinates(
+				                                                      MathHelper.floor_double(entityPlayer.posX),
+				                                                      MathHelper.floor_double(entityPlayer.posY),
+				                                                      MathHelper.floor_double(entityPlayer.posZ));
+				final World world = updatedChestPosition(entityPlayer, saveItems, posChest);
 				
 				// Create chest
-				GuardianChest.logger.info(String.format("Creating GuardianChest at DIM %d (%d %d %d)",
-				                                         world.provider.dimensionId, posX1, posY1, posZ1));
-				world.setBlock(posX1, posY1, posZ1, GCBlocks.GCChest, 0, 2);
-				final TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posX1, posY1, posZ1);
+				GuardianChest.logger.info(String.format("Creating GuardianChest at DIM %d (%d %d %d) with %d items for player %s",
+				                                        world.provider.dimensionId, posChest.posX, posChest.posY, posChest.posZ,
+				                                        itemStackTypeSlots.size(),
+				                                        entityPlayer.getCommandSenderName()));
+				world.setBlock(posChest.posX, posChest.posY, posChest.posZ, GCBlocks.GCChest, 0, 2);
+				final TileEntityGCChest tileEntityGCChest = (TileEntityGCChest) world.getTileEntity(posChest.posX, posChest.posY, posChest.posZ);
 				if (tileEntityGCChest == null) {
-					GuardianChest.logger.error(String.format("GuardianChest without tile entity at DIM %d (%d %d %d)",
-					                                         world.provider.dimensionId, posX1, posY1, posZ1));
+					GuardianChest.logger.error(String.format("GuardianChest without tile entity at DIM %d (%d %d %d) for player %s",
+					                                         world.provider.dimensionId, posChest.posX, posChest.posY, posChest.posZ, entityPlayer.getCommandSenderName()));
 				}
 				
 				// Inform related player of its existence
 				if ((!world.isRemote) && (ConfigHelper.informCoords)) {
-		    		final String message = LanguageRegistry.instance().getStringLocalization("desc.SpawnLocation.Warning")
-				                           .replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name"))
-				                           .replace("%2", entityPlayer.getDisplayName())
-				                           .replace("%3", String.format("DIM %d (%d %d %d)", world.provider.dimensionId, posX1, posY1, posZ1));
+					final String message = LanguageRegistry.instance().getStringLocalization("desc.SpawnLocation.Warning")
+					                       .replace("%1", LanguageRegistry.instance().getStringLocalization("tile.guardianChest.name"))
+					                       .replace("%2", entityPlayer.getDisplayName())
+					                       .replace("%3", String.format("DIM %d (%d %d %d)", world.provider.dimensionId, posChest.posX, posChest.posY, posChest.posZ));
 					
 					entityPlayer.addChatComponentMessage(new ChatComponentText(message));
-		    	}
+				}
 				
-				// Dump player inventory into chest 
+				// Dump player inventory into chest
 				int indexChestSlot = 0;
 				
 				// Return a BoundMapTier0 to the chest if the chest was a Tier2.
@@ -326,8 +263,6 @@ public class GCEventHandler {
 					indexChestSlot++;
 				}
 				
-				
-				
 				if (ConfigHelper.enableDebugLogs) {
 					GuardianChest.logger.info(String.format("Before dump into chest %s (%d) level %d",
 					                                        itemStackTypeSlots, itemStackTypeSlots.size(), levelSoulBoundInventory));
@@ -336,13 +271,13 @@ public class GCEventHandler {
 				// Dump collected inventory into chest				
 				for (ItemStackTypeSlot itemStackTypeSlot : itemStackTypeSlots) {
 					if (!GCsoulBinding.keepItem(itemStackTypeSlot, entityPlayer, levelSoulBoundInventory)) {
-						if ( tileEntityGCChest == null
-						  || indexChestSlot > tileEntityGCChest.getSizeInventory() - 1 ) {// Chest is missing or full 
+						if (tileEntityGCChest == null
+						    || indexChestSlot > tileEntityGCChest.getSizeInventory() - 1) {// Chest is missing or full 
 							// Returning item to player's inventory, so it drops
 							int countdown = 100;
-							while ( countdown > 0
-							     && itemStackTypeSlot.itemStack.stackSize > 0
-							     && !entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack) ) {
+							while (countdown > 0
+							       && itemStackTypeSlot.itemStack.stackSize > 0
+							       && !entityPlayer.inventory.addItemStackToInventory(itemStackTypeSlot.itemStack)) {
 								entityPlayer.dropOneItem(true);
 								countdown--;
 							}
@@ -367,13 +302,105 @@ public class GCEventHandler {
 					}
 				}
 				if (!world.isRemote && tileEntityGCChest != null) {
-	                tileEntityGCChest.registerOwner(entityPlayer, world, posX1, posY1, posZ1);
-		        }
+					tileEntityGCChest.registerOwner(entityPlayer, world, posChest.posX, posChest.posY, posChest.posZ);
+				}
 			}
 		}
 	}
 	
-    private static boolean isFreeSpot(final World world, final int posX, final int posY, final int posZ, final boolean isRequiringSolidBlock) {
+	// update proposed chest position and return target world
+	private World updatedChestPosition(final EntityPlayer entityPlayer, final int saveItems, final ChunkCoordinates posChest) {
+		World world = entityPlayer.worldObj;
+		if (ConfigHelper.enableDebugLogs) {
+			GuardianChest.logger.info(String.format("position DIM%d @ (%d %d %d)", world.provider.dimensionId, posChest.posX, posChest.posY, posChest.posZ));
+		}
+		
+		if ((posChest.posY <= 0) || (saveItems == 2) || ((saveItems == -1) && (ConfigHelper.defaultsToTier2))) {
+			ChunkCoordinates bed = entityPlayer.getBedLocation(entityPlayer.dimension);
+			if (bed == null) {
+				world = MinecraftServer.getServer().worldServerForDimension(0);
+				bed = entityPlayer.getBedLocation(0);
+			}
+			
+			if (bed != null) {
+				posChest.posY = bed.posY;
+				posChest.posX = bed.posX + 1;
+				posChest.posZ = bed.posZ + 1;
+			} else {
+				posChest.posX = world.getSpawnPoint().posX + 1;
+				posChest.posY = world.getSpawnPoint().posY;
+				posChest.posZ = world.getSpawnPoint().posZ;
+			}
+		}
+		
+		// Look for a free spot
+		final int radius = ConfigHelper.maxRadiusToSearchForAFreeSpot;
+		if (ConfigHelper.enableDebugLogs) {
+			GuardianChest.logger.info(String.format("maxRadiusToSearchForAFreeSpot %d", radius));
+		}
+		if (!isFreeSpot(world, posChest.posX, posChest.posY, posChest.posZ, true)) {
+			if (ConfigHelper.enableDebugLogs) {
+				GuardianChest.logger.info("Initial position is bad, searching...");
+			}
+			int newX = posChest.posX;
+			int newY = posChest.posY;
+			int newZ = posChest.posZ;
+			int distanceClosest = Integer.MAX_VALUE;
+			for (int x = -radius; x <= radius; x++) {
+				for (int z = -radius; z <= radius; z++) {
+					for (int y = - 2 * radius; y <= 2 * radius; y++) {
+						if (isFreeSpot(world, posChest.posX + x, posChest.posY + y, posChest.posZ + z, true)) {
+							if (ConfigHelper.enableDebugLogs) {
+								GuardianChest.logger.info(String.format("found free spot at (%d %d %d)", posChest.posX + x, posChest.posY + y, posChest.posZ + z));
+							}
+							final int distanceCurrent = (x * x) + (y * y) + (z * z);
+							if (distanceCurrent < distanceClosest) {
+								if (ConfigHelper.enableDebugLogs) {
+									GuardianChest.logger.info(String.format("new free spot is closer: %d -> %d", distanceClosest, distanceCurrent));
+								}
+								distanceClosest = distanceCurrent;
+								newX = posChest.posX + x;
+								newY = posChest.posY + y;
+								newZ = posChest.posZ + z;
+							}
+						}
+					}
+				}
+			}
+			if (ConfigHelper.enableDebugLogs) {
+				GuardianChest.logger.info(String.format("Search closest distance is %d at (%d %d %d)", distanceClosest, newX, newY, newZ));
+			}
+			if (distanceClosest != Integer.MAX_VALUE) {// (free spot found)
+				if (ConfigHelper.enableDebugLogs) {
+					GuardianChest.logger.info("Search was a success!");
+				}
+				posChest.posX = newX;
+				posChest.posY = newY;
+				posChest.posZ = newZ;
+			} else {// (no free spot, use top solid block if possible)
+				newY = world.getTopSolidOrLiquidBlock(posChest.posX, posChest.posZ);
+				if (ConfigHelper.enableDebugLogs) {
+					GuardianChest.logger.info(String.format("Search failed, checking top block at (%d %d %d)", posChest.posX, newY, posChest.posZ));
+				}
+				if ( isFreeSpot(world, posChest.posX, newY, posChest.posZ, false) ) {
+					if (ConfigHelper.enableDebugLogs) {
+						GuardianChest.logger.info("Search failed, but top block is good to go");
+					}
+					posChest.posY = newY;
+				} else if ( posChest.posY <= 2
+				         || posChest.posY >= 255 ) {
+					// probably in empty space, but current position is bad, so we defaults to 128 
+					if (ConfigHelper.enableDebugLogs) {
+						GuardianChest.logger.info("Search failed, current position is bad, using defaults of 128");
+					}
+					posChest.posY = 128;
+				}
+			}
+		}
+		return world;
+	}
+	
+	private static boolean isFreeSpot(final World world, final int posX, final int posY, final int posZ, final boolean isRequiringSolidBlock) {
 		if (posY < 1 || posY > 255) {// ignore bottom (we might need a solid block below) and top of world (some mods are using it)
 			return false;
 		}

@@ -96,8 +96,8 @@ public class GuardianChest {
 	
 	@EventHandler
 	public void loadMod(FMLInitializationEvent event) {
-		MinecraftForge.EVENT_BUS.register(new GCEventHandler());
-		FMLCommonHandler.instance().bus().register(new GCEventHandler());
+		MinecraftForge.EVENT_BUS.register(GCEventHandler.instance);
+		FMLCommonHandler.instance().bus().register(GCEventHandler.instance);
 		
 		if (ConfigHelper.requireGuardianIdol) {
 			GameRegistry.addRecipe(new ItemStack(guardianTier0), "srs", "tct", "srs", 's', Blocks.stone, 'c', Blocks.chest, 'r', Items.redstone, 't', Blocks.redstone_torch);
